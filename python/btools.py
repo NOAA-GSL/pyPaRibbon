@@ -1,11 +1,12 @@
 ################################################################
-#  Module: btools.ph
+#  Module: btools.py
 #  Desc  : Provides methods for handling pribbon matrix
 #          operations in parallel
 ################################################################
 from   mpi4py import MPI
 import numpy as np
 import math
+import sys
 
 
 class PTools:
@@ -13,25 +14,26 @@ class PTools:
     ################################################################
     #  Method: __init__
     #  Desc  : Constructor
-    #  Args  : comm
-    #          gie    (in): global ending index in given dir
-    #          ntasks (in): total number of tasks
+    #  Args  : comm   (in): communicator
     #          myrank (in): task's rank
-    #          ib    (out): task's local starting index
-    #          ie    (out): task's local ending index
+    #          nprocs (in): no. tasks
+    #          ftype  (in): MPI float type
+    #          gn     (in): 1d array of global data sizes
     # Returns: none
     ################################################################
-    def __init__(self, comm, myrank, nprocs, float_type)
+    def __init__(self, comm, myrank, nprocs, ftype gn)
 
         # Class member data:
         comm _  = comm
-        myrank_ = myrrank
+        myrank_ = myrank
         nprocs_ = nprocs
-        float_type_ = float_type
+        float_type_ = ftype
  
         send_type_ = []
         recv_type_ = []
-
+        assert (len(gn) ==3, "Invalid dimension spec"
+        gn_ = gn
+       
 
     ################################################################
     #  Method: range
@@ -45,7 +47,7 @@ class PTools:
     # Returns: none
     ################################################################
     @staticmethod
-    def range(gib, gie, ntasks, myrrank, ib, ie):
+    def range(gib, gie, ntasks, myrank, ib, ie):
         i1 = (gie - gib + 1) / nprocs
         i2 = (gie-gib+1) % nprocs
                
@@ -94,25 +96,59 @@ class PTools:
 
     ################################################################
     #  Method: init
-    #  Desc  : Create MPI data types for doing transpose 
-    #          sends & receives, etc
-    #  Args  : imin  (in), 
-    #          imax  (in): max & min of 1st dimension
-    #          jmin  (in), 
-    #          jmax  (in): max & min of 2nd dimension
-    #          kmin  (in), 
-    #          kmax  (in): max & min of 3rd dimension
+    #  Desc  : Create MPI data types, misc data  
+    #  Args  : 
     # Returns: none
     ################################################################
-    def init(self, imin, imax, jmin, jmax, kmin, kmax)
-             
-        
-        otype.Commit()
-        for ( i=0; i<self.nprocs_; i++ )
-          self.range(gib, gie, ntasks, myrrank, ib, ie)
+    def init(self)
+	
+        imin = 1
+        jmin = 1
+        kmin = 1
+        imax = gn_[0]
+        jmax = gn_[1]
+        kmax = gn_[2]
+
+   	#  Create send & receive MPI types:
+        self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
+        self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
+                        ib, ie, itype, stype)
+        for ( i=0; i<self.nprocs_; i++ ):
+          self.range(imin, imax, self.nprocs_, i, ib, ie)
           self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
-                     ib, ie, itype, otype)
+                     ib, ie, itype, rtype)
+	  recv_type_[i] = rtype
+	  send_type_[i] = stype
             
+
+        return
+	
+
+    ################################################################
+    #  Method: init
+    #  Desc  : Create MPI data types, misc data  
+    #  Args  : 
+    # Returns: none
+    ################################################################
+    def init(self)
+	
+        imin = 1
+        jmin = 1
+        kmin = 1
+        imax = gn_[0]
+        jmax = gn_[1]
+        kmax = gn_[2]
+
+   	#  Create send & receive MPI types:
+        self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
+        self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
+                        ib, ie, itype, stype)
+        for ( i=0; i<self.nprocs_; i++ ):
+          self.range(imin, imax, self.nprocs_, i, ib, ie)
+          self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
+                     ib, ie, itype, rtype)
+	  recv_type_[i] = rtype
+	  send_type_[i] = stype
             
 
         return

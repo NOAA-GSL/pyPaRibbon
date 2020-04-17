@@ -105,9 +105,9 @@ class PTools:
         imin = 1
         jmin = 1
         kmin = 1
-        imax = gn_[0]
-        jmax = gn_[1]
-        kmax = gn_[2]
+        imax = self.gn_[0]
+        jmax = self.gn_[1]
+        kmax = self.gn_[2]
 
    	#  Create send & receive MPI types:
         self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
@@ -152,7 +152,7 @@ class PTools:
           if ( self.myrank_ > 0 ):
             rdat = comm_.recv(source=i-1)
 
-          self.thresh(local_data, rdat, cthresh, Ip, Jp) 
+            self.do_thresh(local_data, rdat, i, cthresh, Ip, Jp) 
 
           # Append new global indices to return arrays:
           np.append(I, Ip, 0)
@@ -166,16 +166,54 @@ class PTools:
     #  Desc  : With local data, and off-task data, compute
     #          global indices where covariance exceeds
     #          specified threshold.
-    #  Args  : ldata : this task's (local) data
-    #          rdata : off-task (remote)  data
+    #  Args  : ldata : this task's (local) data, assumed 'flattened'
+    #          rdata : off-task (remote)  data, assumed 'flattened'
+    #          irecv : task id that rdata is received from
     #          thresh: threshold covariance
     #          I, J  : arrays of indieces into global B mat
     #			    where cov > thresh
     # Returns: 
     ################################################################
-    def do_thresh(self, ldata, rdata, thresh, I, J)
+    def do_thresh(self, ldata, rdata, irecv, thresh, I, J)
 	
-	# Do thresholding during exchange loop
+        imin = 1
+        jmin = 1
+        kmin = 1
+        imax = self.gn_[0]
+        jmax = self.gn_[1]
+        kmax = self.gn_[2]
+        self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
+
+        ib -= 1
+        ie -= 1
+
+        nplane = (jmax-jmin_1)*(kmax-kmin+1)
+        nb     = ib*nplane
+
+	# Order s.t. we multiply
+	#    Transpose(ldata) X rdata:
+        index = nb
+	for ( j=0; j<len(ldata); j++ ):
+     	  # Locate in global grid:
+          ig = index/(self.gn_[1]*self.gn_[2])
+          jg = (index-ig)/self.gn_[1]
+          kg = index - jg*self.gn_[1]
+              
+	  # Compute global matrix index: 	    
+          Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
+	  for ( i=0; i<len(rdata); i++ ):
+            prod = ldata[j] * rdata[i];
+   	    if ( prod >= thresh ):
+
+     	      # Locate in global grid:
+              ig = index/(self.gn_[1]*self.gn_[2])
+              jg = (index-ig)/self.gn_[1]
+              kg = index - jg*self.gn_[1]
+              
+	      # Compute global matrix indices: 	    
+              Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
+             
+	
         
 
         return

@@ -166,8 +166,8 @@ class PTools:
     #  Desc  : With local data, and off-task data, compute
     #          global indices where covariance exceeds
     #          specified threshold.
-    #  Args  : ldata : this task's (local) data, assumed 'flattened'
-    #          rdata : off-task (remote)  data, assumed 'flattened'
+    #  Args  : ldata : this task's (local) data block, assumed 'flattened'
+    #          rdata : off-task (remote) data clock, assumed 'flattened'
     #          irecv : task id that rdata is received from
     #          thresh: threshold covariance
     #          I, J  : arrays of indieces into global B mat
@@ -186,32 +186,34 @@ class PTools:
         // Find global starting index of local block:
         self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
         ib -= 1
-        lnb    = ib*(jmax-jmin_1)*(kmax-kmin+1)
+        lnb = ib*(jmax-jmin_1)*(kmax-kmin+1)
 
         // Find global starting index of recv'd block:
         self.range(imin, imax, self.nprocs_, irecv, ib, ie)
         ib -= 1
-        rnb    = ib*(jmax-jmin_1)*(kmax-kmin+1)
+        rnb = ib*(jmax-jmin_1)*(kmax-kmin+1)
 
 	# Order s.t. we multiply
 	#    Transpose(ldata) X rdata:
-	for ( j=0; j<nb+len(ldata); j++ ):
+        # wherer Trarnspose(ldata) is a column vector, 
+        # and rdata, a row vector in matrix-speak
+        for ( i=0; i<len(ldata); i++ ):
      	  # Locate in global grid:
-          ig = i/(self.gn_[1]*self.gn_[2])
-          jg = (i-ig)/self.gn_[1]
-          kg = index - jg*self.gn_[1]
+          ig = (lnb+i)/(self.gn_[1]*self.gn_[2])
+          jg = (lnb+i-ig)/self.gn_[1]
+          kg =  lnb+i - jg*self.gn_[1]
     
 	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
           n = 0
-	  for ( i=0; i<len(rdata); i++ ):
+	  for ( j=0; j<len(rdata); j++ ):
             prod = ldata[j] * rdata[i];
    	    if ( prod >= thresh ):
 
      	      # Locate in global grid:
-              ig = index/(self.gn_[1]*self.gn_[2])
-              jg = (index-ig)/self.gn_[1]
-              kg = index - jg*self.gn_[1]
+              ig = (rnb+j)/(self.gn_[1]*self.gn_[2])
+              jg = (rnb+j-ig)/self.gn_[1]
+              kg =  rnb+j - jg*self.gn_[1]
               
 	      # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
@@ -220,7 +222,7 @@ class PTools:
 	      J[n] = Jg
            
 	    n++
-       	   
+
 
         return
 	

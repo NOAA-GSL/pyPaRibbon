@@ -24,15 +24,15 @@ class PTools:
     def __init__(self, comm, myrank, nprocs, ftype gn)
 
         # Class member data:
-        comm _  = comm
-        myrank_ = myrank
-        nprocs_ = nprocs
-        float_type_ = ftype
+        self.comm _  = comm
+        self.myrank_ = myrank
+        self.nprocs_ = nprocs
+        self.float_type_ = ftype
  
-        send_type_ = []
-        recv_type_ = []
+        self.send_type_  = MPI.DOUBLE
+        self.recv_type_ = []
         assert (len(gn) ==3, "Invalid dimension spec"
-        gn_ = gn
+        self.gn_ = gn
        
 
     ################################################################
@@ -112,44 +112,71 @@ class PTools:
    	#  Create send & receive MPI types:
         self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
         self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
-                        ib, ie, itype, stype)
+                        ib, ie, itype, send_type_)
         for ( i=0; i<self.nprocs_; i++ ):
           self.range(imin, imax, self.nprocs_, i, ib, ie)
           self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                      ib, ie, itype, rtype)
 	  recv_type_[i] = rtype
-	  send_type_[i] = stype
             
 
         return
 	
 
     ################################################################
-    #  Method: init
-    #  Desc  : Create MPI data types, misc data  
-    #  Args  : 
+    #  Method: buildB
+    #  Desc  : Create 'B-matrix' from distributed data
+    #  Args  : ldata  : this task's (local)_ data
+    #          cthresh: cov threshold
+    #          I, J  : arrays of indieces into global B mat
+    #			    where cov > thresh
     # Returns: none
     ################################################################
-    def init(self)
+    def buildB(self, ldata, cthresh, I, J)
 	
-        imin = 1
-        jmin = 1
-        kmin = 1
-        imax = gn_[0]
-        jmax = gn_[1]
-        kmax = gn_[2]
+	# Each task sends to all available larger 
+        # task ids, and receives from all available
+        # lower task ids.
 
-   	#  Create send & receive MPI types:
-        self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
-        self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
-                        ib, ie, itype, stype)
-        for ( i=0; i<self.nprocs_; i++ ):
-          self.range(imin, imax, self.nprocs_, i, ib, ie)
-          self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
-                     ib, ie, itype, rtype)
-	  recv_type_[i] = rtype
-	  send_type_[i] = stype
-            
+
+        # Do thresholding in local covariance members:
+        self.thresh(local_data, local_data, cthresh, I, J) 
+        
+	# Do thresholding during exchange loop;
+        # Use blocking sends, receives:
+        for ( i=self.myrank_; i<self.nprocs_; i++ ):
+
+          if ( self.myrank_ < self.nprocs_-1 ):
+            comm_.send(local_data,dest=i+1)
+
+          if ( self.myrank_ > 0 ):
+            rdat = comm_.recv(source=i-1)
+
+          self.thresh(local_data, rdat, cthresh, Ip, Jp) 
+
+          # Append new global indices to return arrays:
+          np.append(I, Ip, 0)
+          np.append(J, Jp, 0)
+
+        return
+	
+
+    ################################################################
+    #  Method: do_thresh
+    #  Desc  : With local data, and off-task data, compute
+    #          global indices where covariance exceeds
+    #          specified threshold.
+    #  Args  : ldata : this task's (local) data
+    #          rdata : off-task (remote)  data
+    #          thresh: threshold covariance
+    #          I, J  : arrays of indieces into global B mat
+    #			    where cov > thresh
+    # Returns: 
+    ################################################################
+    def do_thresh(self, ldata, rdata, thresh, I, J)
+	
+	# Do thresholding during exchange loop
+        
 
         return
 	

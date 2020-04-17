@@ -182,25 +182,28 @@ class PTools:
         imax = self.gn_[0]
         jmax = self.gn_[1]
         kmax = self.gn_[2]
+
+        // Find global starting index of local block:
         self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
-
         ib -= 1
-        ie -= 1
+        lnb    = ib*(jmax-jmin_1)*(kmax-kmin+1)
 
-        nplane = (jmax-jmin_1)*(kmax-kmin+1)
-        nb     = ib*nplane
+        // Find global starting index of recv'd block:
+        self.range(imin, imax, self.nprocs_, irecv, ib, ie)
+        ib -= 1
+        rnb    = ib*(jmax-jmin_1)*(kmax-kmin+1)
 
 	# Order s.t. we multiply
 	#    Transpose(ldata) X rdata:
-        index = nb
-	for ( j=0; j<len(ldata); j++ ):
+	for ( j=0; j<nb+len(ldata); j++ ):
      	  # Locate in global grid:
-          ig = index/(self.gn_[1]*self.gn_[2])
-          jg = (index-ig)/self.gn_[1]
+          ig = i/(self.gn_[1]*self.gn_[2])
+          jg = (i-ig)/self.gn_[1]
           kg = index - jg*self.gn_[1]
-              
+    
 	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
+          n = 0
 	  for ( i=0; i<len(rdata); i++ ):
             prod = ldata[j] * rdata[i];
    	    if ( prod >= thresh ):
@@ -211,10 +214,13 @@ class PTools:
               kg = index - jg*self.gn_[1]
               
 	      # Compute global matrix indices: 	    
-              Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
+              Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
-	
-        
+	      I[n] = Ig
+	      J[n] = Jg
+           
+	    n++
+       	   
 
         return
 	

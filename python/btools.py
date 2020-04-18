@@ -141,7 +141,7 @@ class BTools:
         
 	# Do thresholding during exchange loop;
         # Use blocking sends, receives:
-        for i in range(self.myrank_, self.nprocs_-1):
+        for i in range(self.myrank_, self.nprocs_):
 
           if ( self.myrank_ < self.nprocs_-1 ):
             comm_.send(local_data,dest=i+1)
@@ -198,7 +198,7 @@ class BTools:
         # wherer Trarnspose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
         n = 0
-        for i in range(0, len(ldata)-1):
+        for i in range(0, len(ldata)):
      	  # Locate in global grid:
           ig = (lnb+i)/(self.gn_[1]*self.gn_[2])
           jg = (lnb+i-ig)/self.gn_[1]
@@ -206,7 +206,7 @@ class BTools:
     
 	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
-          for j in range(0, len(rdata)-1):
+          for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
             if prod >= thresh:

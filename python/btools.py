@@ -9,7 +9,7 @@ import math
 import sys
 
 
-class pBTools:
+class BTools:
 
     ################################################################
     #  Method: __init__
@@ -29,7 +29,7 @@ class pBTools:
  
         self.send_type_ = ftype
         self.recv_type_ = []
-        assert (len(gn) ==3, "Invalid dimension spec")
+        assert len(gn)==3, "Invalid dimension spec"
         self.gn_ = gn
        
 
@@ -38,23 +38,22 @@ class pBTools:
     #  Desc  : Compute (Fortran) array bounds given global bounds
     #  Args  : gib    (in): global starting index in a given dir
     #          gie    (in): global ending index in given dir
-    #          ntasks (in): total number of tasks
+    #          nprocs (in): total number of tasks
     #          myrank (in): task's rank
-    #          ib    (out): task's local starting index
-    #          ie    (out): task's local ending index
-    # Returns: none
+    # Returns: (ib ie): task's local starting, ending indices
     ################################################################
     @staticmethod
-    def range(gib, gie, ntasks, myrank, ib, ie):
+    def range(gib, gie, nprocs, myrank):
+
         i1 = (gie - gib + 1) / nprocs
-        i2 = (gie-gib+1) % nprocs
+        i2 = (gie - gib + 1) % nprocs
                
         ib = myrank*i1 + gib + min(myrank, i2)
         ie = ib + i1 - 1
-        if i2 > nyrank : 
+        if i2 > myrank: 
            ie = ie + 1
 	
-        return
+        return ib, ie
 	
 
     ################################################################
@@ -108,11 +107,11 @@ class pBTools:
         kmax = self.gn_[2]
 
    	#  Create send & receive MPI types:
-        self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
+        (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
         self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                         ib, ie, itype, send_type_)
         for i in range(0, self.nprocs_):
-          self.range(imin, imax, self.nprocs_, i, ib, ie)
+          (ib, ie) = self.range(imin, imax, self.nprocs_, i)
           self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                      ib, ie, itype, rtype)
         recv_type_[i] = rtype
@@ -174,6 +173,9 @@ class pBTools:
     ################################################################
     def do_thresh(self, ldata, rdata, irecv, thresh, I, J):
 	
+        assert len(ldata.shape)==1
+        assert len(rdata.shape)==1
+
         imin = 1
         jmin = 1
         kmin = 1
@@ -182,14 +184,14 @@ class pBTools:
         kmax = self.gn_[2]
 
         # Find global starting index of local block:
-        self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
+        (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
         ib -= 1
-        lnb = ib*(jmax-jmin_1)*(kmax-kmin+1)
+        lnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
 
         # Find global starting index of recv'd block:
-        self.range(imin, imax, self.nprocs_, irecv, ib, ie)
+        (ib, ie) = self.range(imin, imax, self.nprocs_, irecv)
         ib -= 1
-        rnb = ib*(jmax-jmin_1)*(kmax-kmin+1)
+        rnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
 
 	# Order s.t. we multiply
 	#    Transpose(ldata) X rdata:
@@ -206,8 +208,10 @@ class pBTools:
           n = 0
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
-
-            if prod >= thresh:
+            print ("do_thresh::prod.shape",prod.shape)
+            print ("do_thresh::ldata.shape",ldata.shape)
+            print ("do_thresh::rdata.shape",rdata.shape)
+            if (prod.all() >= thresh):
      	      # Locate in global grid:
               ig = (rnb+j)/(self.gn_[1]*self.gn_[2])
               jg = (rnb+j-ig)/self.gn_[1]

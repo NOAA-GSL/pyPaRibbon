@@ -1,15 +1,11 @@
 import os, sys
-import btools
 from mpi4py import MPI
 from numpy import *
 import numpy as np
 from numpy import sum
 import math
+import btools
 
-ncfile = "testmerge.nc"
-
-nc=Dataset(ncfile,'a')
-pv_b=nc.variables['T']
 
 # Get world size and rank:
 comm   = MPI.COMM_WORLD
@@ -28,14 +24,23 @@ for k in range(0,gdims[2]):
 
 ldata2 = ldata1 * nprocs
 
-ldata1.flatten()
-ldata2.flatten()
+ldata1 = ldata1.flatten()
+ldata2 = ldata2.flatten()
 
-BTOOLS = pBTools(comm, MPI.FLOAT, gdims)
+print("main: ldata1.shape=",ldata1.shape)
 
+BTOOLS = btools.BTools(comm, MPI.FLOAT, gdims)
+
+J = []
+I = []
 BTOOLS.do_thresh(ldata1, ldata2, 0, 10.0, I, J)
 
-I
-J
+print("I=")
+for j in I: 
+    print(j,)
+
+print("J=")
+for j in J: 
+    print(j,)
 
 

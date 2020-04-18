@@ -115,7 +115,7 @@ class pBTools:
           self.range(imin, imax, self.nprocs_, i, ib, ie)
           self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                      ib, ie, itype, rtype)
-	  recv_type_[i] = rtype
+        recv_type_[i] = rtype
             
 
         return
@@ -205,21 +205,21 @@ class pBTools:
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
           n = 0
           for j in range(0, len(rdata)):
-            prod = ldata[j] * rdata[i];
-   	    if ( prod >= thresh ):
+            prod = ldata[i] * rdata[j]
 
+            if prod >= thresh:
      	      # Locate in global grid:
               ig = (rnb+j)/(self.gn_[1]*self.gn_[2])
               jg = (rnb+j-ig)/self.gn_[1]
               kg =  rnb+j - jg*self.gn_[1]
-              
-	      # Compute global matrix indices: 	    
+           
+	          # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
-	      I[n] = Ig
-	      J[n] = Jg
+              I[n] = Ig
+              J[n] = Jg
            
-	    n += 1
+              n += 1
 
 
         return

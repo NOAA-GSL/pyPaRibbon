@@ -13,14 +13,15 @@ myrank = comm.Get_rank()
 nprocs = comm.Get_size()
 print("main: nprocs=",nprocs, " rank=", myrank)
 
-# Create some test data:
+# Create some (Fortran-ordered) test data:
 ldims  = ([2,2,1]);
-gdims  = ldims * nprocs 
+gdims  = np.multiply(ldims, nprocs) 
 ldata1 = np.ndarray(ldims,dtype=float,order='F') 
+print("main: gdims", gdims)
 
-for k in range(0,gdims[2]): 
-  for j in range(0,gdims[1]): 
-    for i in range(0,gdims[0]): 
+for k in range(0,ldims[2]-1): 
+  for j in range(0,ldims[1]-1): 
+    for i in range(0,ldims[0]-1): 
       ldata1[i,j,k] = i + j*gdims[1] + k*gdims[0]*gdims[1] + myrank
 
 ldata2 = ldata1 * (nprocs+1)
@@ -29,7 +30,6 @@ ldata1 = ldata1.flatten()
 ldata2 = ldata2.flatten()
 
 print("main: ldata1", ldata1)
-print("main: ldata2", ldata2)
 BTOOLS = btools.BTools(comm, MPI.FLOAT, gdims)
 
 J = []

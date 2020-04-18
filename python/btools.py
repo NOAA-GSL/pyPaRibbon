@@ -110,7 +110,7 @@ class BTools:
         (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
         self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                         ib, ie, itype, send_type_)
-        for i in range(0, self.nprocs_):
+        for i in range(0, self.nprocs_-1):
           (ib, ie) = self.range(imin, imax, self.nprocs_, i)
           self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                      ib, ie, itype, rtype)
@@ -141,7 +141,7 @@ class BTools:
         
 	# Do thresholding during exchange loop;
         # Use blocking sends, receives:
-        for i in range(self.myrank_, self.nprocs_):
+        for i in range(self.myrank_, self.nprocs_-1):
 
           if ( self.myrank_ < self.nprocs_-1 ):
             comm_.send(local_data,dest=i+1)
@@ -198,7 +198,7 @@ class BTools:
         # wherer Trarnspose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
         n = 0
-        for i in range(0, len(ldata)):
+        for i in range(0, len(ldata)-1):
      	  # Locate in global grid:
           ig = (lnb+i)/(self.gn_[1]*self.gn_[2])
           jg = (lnb+i-ig)/self.gn_[1]
@@ -206,7 +206,7 @@ class BTools:
     
 	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
-          for j in range(0, len(rdata)):
+          for j in range(0, len(rdata)-1):
             prod = ldata[i] * rdata[j]
             
             if prod >= thresh:

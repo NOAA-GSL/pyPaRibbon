@@ -17,19 +17,19 @@ class PTools:
     #  Args  : comm   (in): communicator
     #          myrank (in): task's rank
     #          nprocs (in): no. tasks
-    #          ftype  (in): MPI float type
+    #          ftype  (in): MPI float type of data
     #          gn     (in): 1d array of global data sizes
     # Returns: none
     ################################################################
-    def __init__(self, comm, myrank, nprocs, ftype gn)
+    def __init__(self, comm, ftype, gn)
 
         # Class member data:
-        self.comm _  = comm
-        self.myrank_ = myrank
-        self.nprocs_ = nprocs
+        self.comm_   = comm
+        self.myrank_ = comm.Get_rank()
+        self.nprocs_ = comm.Get_size()
         self.float_type_ = ftype
  
-        self.send_type_  = MPI.DOUBLE
+        self.send_type_ = ftype
         self.recv_type_ = []
         assert (len(gn) ==3, "Invalid dimension spec"
         self.gn_ = gn

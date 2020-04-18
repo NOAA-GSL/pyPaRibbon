@@ -19,7 +19,7 @@ class pBTools:
     #          gn     (in): 1d array of global data sizes
     # Returns: none
     ################################################################
-    def __init__(self, comm, ftype, gn)
+    def __init__(self, comm, ftype, gn):
 
         # Class member data:
         self.comm_   = comm
@@ -29,7 +29,7 @@ class pBTools:
  
         self.send_type_ = ftype
         self.recv_type_ = []
-        assert (len(gn) ==3, "Invalid dimension spec"
+        assert (len(gn) ==3, "Invalid dimension spec")
         self.gn_ = gn
        
 
@@ -98,7 +98,7 @@ class pBTools:
     #  Args  : 
     # Returns: none
     ################################################################
-    def init(self)
+    def init(self):
 	
         imin = 1
         jmin = 1
@@ -130,7 +130,7 @@ class pBTools:
     #			    where cov > thresh
     # Returns: none
     ################################################################
-    def buildB(self, ldata, cthresh, I, J)
+    def buildB(self, ldata, cthresh, I, J):
 	
 	# Each task sends to all available larger 
         # task ids, and receives from all available
@@ -172,7 +172,7 @@ class pBTools:
     #			    where cov > thresh
     # Returns: 
     ################################################################
-    def do_thresh(self, ldata, rdata, irecv, thresh, I, J)
+    def do_thresh(self, ldata, rdata, irecv, thresh, I, J):
 	
         imin = 1
         jmin = 1
@@ -181,12 +181,12 @@ class pBTools:
         jmax = self.gn_[1]
         kmax = self.gn_[2]
 
-        // Find global starting index of local block:
+        # Find global starting index of local block:
         self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
         ib -= 1
         lnb = ib*(jmax-jmin_1)*(kmax-kmin+1)
 
-        // Find global starting index of recv'd block:
+        # Find global starting index of recv'd block:
         self.range(imin, imax, self.nprocs_, irecv, ib, ie)
         ib -= 1
         rnb = ib*(jmax-jmin_1)*(kmax-kmin+1)
@@ -219,7 +219,7 @@ class pBTools:
 	      I[n] = Ig
 	      J[n] = Jg
            
-	    n++
+	    n += 1
 
 
         return

@@ -9,14 +9,12 @@ import math
 import sys
 
 
-class PTools:
+class pBTools:
 
     ################################################################
     #  Method: __init__
     #  Desc  : Constructor
     #  Args  : comm   (in): communicator
-    #          myrank (in): task's rank
-    #          nprocs (in): no. tasks
     #          ftype  (in): MPI float type of data
     #          gn     (in): 1d array of global data sizes
     # Returns: none
@@ -113,7 +111,7 @@ class PTools:
         self.range(imin, imax, self.nprocs_, self.myrank_, ib, ie)
         self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                         ib, ie, itype, send_type_)
-        for ( i=0; i<self.nprocs_; i++ ):
+        for i in range(0, self.nprocs_):
           self.range(imin, imax, self.nprocs_, i, ib, ie)
           self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                      ib, ie, itype, rtype)
@@ -144,7 +142,7 @@ class PTools:
         
 	# Do thresholding during exchange loop;
         # Use blocking sends, receives:
-        for ( i=self.myrank_; i<self.nprocs_; i++ ):
+        for i in range(self.myrank_, self.nprocs_):
 
           if ( self.myrank_ < self.nprocs_-1 ):
             comm_.send(local_data,dest=i+1)
@@ -197,7 +195,7 @@ class PTools:
 	#    Transpose(ldata) X rdata:
         # wherer Trarnspose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
-        for ( i=0; i<len(ldata); i++ ):
+        for i in range(0, len(ldata)):
      	  # Locate in global grid:
           ig = (lnb+i)/(self.gn_[1]*self.gn_[2])
           jg = (lnb+i-ig)/self.gn_[1]
@@ -206,7 +204,7 @@ class PTools:
 	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
           n = 0
-	  for ( j=0; j<len(rdata); j++ ):
+          for j in range(0, len(rdata)):
             prod = ldata[j] * rdata[i];
    	    if ( prod >= thresh ):
 

@@ -1,3 +1,7 @@
+import numpy as np
+import sys
+from netCDF4 import Dataset
+
 def BM_ensembleDims(fileName):
    # ix, iy, iz, itime, nens = BM_ensembleDims(fileName)
    # Open netCDF file: fileName and quiry ensemble dimensions.
@@ -53,17 +57,17 @@ def BM_range(mpiTasks, mpiRank, ix):
    return iLstart,iLend
 
 
-def BM_data(fileName, ensembleName, times, mpiTasks, mpiRank, means):
-   # N = BM_data(fileName, ensembleName, times, mpiTask, mpiRank, means)
+def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
+   # N = Btools_getSlabData(fileName, ensembleName, itime, mpiTask, mpiRank, means)
    # N is a slab of data (x,y,z) 
    #
    # fileName, string, filename of the netCDF file to open
    # ensembleName, string, name of the ensemble
-   # times, scalar, single time (for now,later can be ranges)
+   # itime, integer, single time (for now,later can be ranges)
    # mpiTasks, integer, number of MPI tasks (> 0)
    # mpiRank, integer, rank of the calling process [0, mpiTasks-1] (zero based)
    # means, integer, 1,2,3 where:
-   #    1: N - mean of all the ensembles (not implemented)
+   #    1: T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
    #    2: N - mean of ensembleName
    #    3: raw (no subtracted mean)
    # N, numpy array, data for a particular mpiRank
@@ -72,13 +76,16 @@ def BM_data(fileName, ensembleName, times, mpiTasks, mpiRank, means):
    # Check the inputs.
    #
    if mpiRank <0 or mpiRank>(mpiTasks-1):
-       sys.exit("Error, bad mpiRank in BM_data!")
+       sys.exit("Error, bad mpiRank in Btools_getSlabData!")
 
    if (type(mpiRank) is not int):
-       sys.exit("Error, bad mpiRank type in BM_data!")
+       sys.exit("Error, bad mpiRank type in Btools_getSlabData!")
+   
+   if (type(itime) is not int):
+       sys.exit("Error, bad itime type in Btools_getSlabData!")
 
    if (type(fileName) is not str):
-       sys.exit("Error, bad fileName type in BM_data!")
+       sys.exit("Error, bad fileName type in Btools_getSlabData!")
 
    # 
    # Open the netCDF file, what is read depends on means.
@@ -88,29 +95,34 @@ def BM_data(fileName, ensembleName, times, mpiTasks, mpiRank, means):
    #
    # Return the selected data.
    #
-   if means == 1:
-      sys.exit("Error, unimplemented means in BM_data!")
+   if means == 1: # T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
+      N = nc.variables[ensembleName]
+      ix = N.shape[4]
+      iy = N.shape[3]
+      iz = N.shape[2]
+      iz = N.shape[2]
+      iensembles = N.shape[0]
+      Nsum = np.zeros([0,iy,ix],dtype=float)
+      for i in range(0,iensembles):
+         Nsum = Nsum + N[i,itime,0,:,:]
+      N = Nsum / (iensembles+1)
+      iLstart,iLend = BM_range(mpiTasks, mpiRank, ix)
+      N = N[:,iLstart:iLend]
    elif means == 2:  # Subtract the ensemble mean.
       N = nc.variables[ensembleName]
-      print ("N shape = ", N.shape)
-      N = N[0,0,0,:,:]
       mean = np.mean(N)
-      ix = N.shape[-1] # The right most index dimension of N.
+      ix = N.shape[4] # The right most index dimension of N.
       iLstart,iLend = BM_range(mpiTasks, mpiRank, ix)
-      print ("iLstart =",iLstart,"iLend",iLend)
-      N = N[:,iLstart:iLend] - mean
-      print ("N number of dims =", N.ndim)
+      N = N[0,0,0,:,iLstart:iLend] - mean
    elif means == 3:
       N = nc.variables[ensembleName]
-      ix = N.shape[-1] # The right most index dimension of N.
+      ix = N.shape[4] # The right most index dimension of N.
       iLstart,iLend = BM_range(mpiTasks, mpiRank, ix)
-      print ("iLstart =",iLstart,"iLend",iLend)
       N = N[0,0,0,:,iLstart:iLend]
    else:
       sys.exit("Error, bad mean value!")
 
    nc.close
-   print ("N shape =", N.shape)
    return N
 
 # variables:
@@ -122,8 +134,8 @@ def BM_data(fileName, ensembleName, times, mpiTasks, mpiRank, means):
 # T:stagger = "" ;
 # T:coordinates = "XLONG XLAT XTIME" ;
 
-for itasks in range (50,51):
-   for irank in range (3,4):
-      print("irank=",irank,"itasks=",itasks)
-      N = BM_data("Tmerged.nc", "T", 1, itasks, irank, 2)
-
+#for itasks in range (50,51):
+#   for irank in range (3,4):
+#      print("irank=",irank,"itasks=",itasks)
+#      N = Btools_getSlabData("Tmerged.nc", "T", 0, itasks, irank, 3)
+#      print ("N shape =", N.shape)

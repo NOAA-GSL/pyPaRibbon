@@ -208,9 +208,7 @@ class BTools:
           n = 0
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
-            print ("do_thresh::prod.shape",prod.shape)
-            print ("do_thresh::ldata.shape",ldata.shape)
-            print ("do_thresh::rdata.shape",rdata.shape)
+            
             if (prod.all() >= thresh):
      	      # Locate in global grid:
               ig = (rnb+j)/(self.gn_[1]*self.gn_[2])
@@ -220,8 +218,8 @@ class BTools:
 	          # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
-              I[n] = Ig
-              J[n] = Jg
+              I.append(Ig)
+              J.append(Jg)
            
               n += 1
 

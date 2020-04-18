@@ -197,6 +197,7 @@ class BTools:
 	#    Transpose(ldata) X rdata:
         # wherer Trarnspose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
+        n = 0
         for i in range(0, len(ldata)):
      	  # Locate in global grid:
           ig = (lnb+i)/(self.gn_[1]*self.gn_[2])
@@ -205,11 +206,10 @@ class BTools:
     
 	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
-          n = 0
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
-            if (prod.all() >= thresh):
+            if prod >= thresh:
      	      # Locate in global grid:
               ig = (rnb+j)/(self.gn_[1]*self.gn_[2])
               jg = (rnb+j-ig)/self.gn_[1]
@@ -223,6 +223,7 @@ class BTools:
            
               n += 1
 
+        print("do_thresh: number found=",n)
 
         return
 	

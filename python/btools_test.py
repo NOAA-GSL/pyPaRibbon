@@ -6,6 +6,7 @@ from numpy import sum
 import math
 from random import seed
 from random import random
+import array
 import btools
 
 
@@ -34,7 +35,7 @@ for k in range(0,ldims[2]):
 #     print("ldata1=",ldata1[i,j,k])
 
 #ldata2 = np.multiply(ldata1,nprocs+1)
- ldata2 = ldata1
+ldata2 = ldata1
 
 
 ldata1 = ldata1.flatten()
@@ -44,28 +45,30 @@ print("main: ldata1", ldata1)
 print("main: ldata2", ldata2)
 BTOOLS = btools.BTools(comm, MPI.FLOAT, gdims)
 
-J = []
-I = []
-threshold = 0.20
+B = []
+J = array.array('i')
+I = array.array('i')
+threshold = 0.0
 BTOOLS.do_thresh(ldata1, ldata2, 0, threshold, B, I, J)
 
 # Compute analytic solution:
 C = np.tensordot(ldata1, ldata2, 0)
 C[abs(C) < threshold] = 0.
 
-#print("I=")
-#for j in I: 
-#    print(j, end=' ')
+print("I=")
+for j in I: 
+    print(j, end=' ')
 #
-#print("J=")
-#for j in J: 
-#    print(j, end=' ')
+print("J=")
+for j in J: 
+    print(j, end=' ')
 #
-#print("B=")
-#for c in B: 
-#    print(c, end=' ')
-#print("main: max number entries  : ", np.prod(gdims))
-#print("main: number entries found: ", len(I))
+print("B=")
+for c in B: 
+    print(c, end=' ')
+#
+print("main: max number entries  : ", np.prod(gdims))
+print("main: number entries found: ", len(I))
 
 
 for i in range(0,len(I)):

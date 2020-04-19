@@ -45,7 +45,12 @@ class BTools:
     @staticmethod
     def range(gib, gie, nprocs, myrank):
 
-        i1 = (gie - gib + 1) / nprocs
+        i1 = 0
+        i2 = 0
+        ib = 0
+        ie = 0
+
+        i1 = int((gie - gib + 1) / nprocs)
         i2 = (gie - gib + 1) % nprocs
                
         ib = myrank*i1 + gib + min(myrank, i2)
@@ -197,19 +202,21 @@ class BTools:
         ib -= 1
         rnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
 
-	# Order s.t. we multiply
-	#    Transpose(ldata) X rdata:
+    	# Order s.t. we multiply
+	    #    Transpose(ldata) X rdata:
         # wherer Trarnspose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
         n = 0
         for i in range(0, len(ldata)):
      	  # Locate in global grid:
-          ig = (lnb+i)/(self.gn_[1]*self.gn_[2])
-          jg = (lnb+i-ig)/self.gn_[1]
+          ig = int( (lnb+i)/(self.gn_[1]*self.gn_[2]) )
+          jg = int( (lnb+i-ig)/self.gn_[1] )
           kg =  lnb+i - jg*self.gn_[1]
-    
-	  # Compute global matrix index: 	    
+          print("i=",i," ig=",ig," jg=",jg,"kg=",kg)
+
+	      # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
+          print("Ig=",Ig)
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
@@ -223,8 +230,8 @@ class BTools:
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
               B.append(prod)
-              I.append(Ig)
-              J.append(Jg)
+              I.append(int(Ig))
+              J.append(int(Jg))
            
               n += 1
 

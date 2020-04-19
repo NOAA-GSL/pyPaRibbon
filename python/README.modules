@@ -1,0 +1,20 @@
+To load CH's modules:
+
+module use /scratch2/BMC/gsd-hpcs/Christopher.W.Harrop/bass-develop/modulefiles
+module load Anaconda2
+module load Anaconda3
+
+To access orig. code, and data, go to:
+
+/scratch1/BMC/wrfruc/isidora/HRRRDASdata/format
+
+
+
+Chris has a working python for our needs. it has mpi4py and netcdf4.  Here are the load instructions:
+
+module use /scratch2/BMC/gsd-hpcs/Christopher.W.Harrop/bass-develop/modulefiles
+module load BASS
+module load Anaconda3
+module load gcc
+module load impi 
+

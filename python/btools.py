@@ -209,9 +209,10 @@ class BTools:
         n = 0
         for i in range(0, len(ldata)):
      	  # Locate in global grid:
-          ig = int( (lnb+i)/(self.gn_[1]*self.gn_[2]) )
-          jg = int( (lnb+i-ig)/self.gn_[1] )
-          kg =  lnb+i - jg*self.gn_[1]
+          ig   = int( (lnb+i)/(self.gn_[1]*self.gn_[2]) )
+          itmp = ig*self.gn_[1]*self.gn_[2]
+          jg   = int( (lnb+i-itmp)/self.gn_[1] )
+          kg   =  lnb+i - itmp  - jg*self.gn_[1]
           print("i=",i," ig=",ig," jg=",jg,"kg=",kg)
 
 	      # Compute global matrix index: 	    
@@ -222,9 +223,10 @@ class BTools:
             
             if prod >= thresh:
      	      # Locate in global grid:
-              ig = (rnb+j)/(self.gn_[1]*self.gn_[2])
-              jg = (rnb+j-ig)/self.gn_[1]
-              kg =  rnb+j - jg*self.gn_[1]
+              ig   = int( (rnb+j)/(self.gn_[1]*self.gn_[2]) )
+              itmp = ig*self.gn_[1]*self.gn_[2]
+              jg   = int( (rnb+j-itmp)/self.gn_[1] )
+              kg   =  rnb+j - itmp  - jg*self.gn_[1]
            
 	          # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]

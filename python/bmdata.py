@@ -97,17 +97,20 @@ def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
    #
    if means == 1: # T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
       N = nc.variables[ensembleName]
-      ix = N.shape[4]
-      iy = N.shape[3]
-      iz = N.shape[2]
-      iz = N.shape[2]
-      iensembles = N.shape[0]
-      Nsum = np.zeros([0,iy,ix],dtype=float)
+      if len(N.shape) != 5:
+         sys.exit("Error, ensemble should have five dimensions!")
+      iensembles,ntimes,iz,iy,ix = N.shape
+      Nsum = np.zeros([1,iy,ix],dtype=float)
+      print ("Ensembles = ",iensembles)
       for i in range(0,iensembles):
-         Nsum = Nsum + N[i,itime,0,:,:]
-      N = Nsum / (iensembles+1)
+         Nsum = Nsum + N[i,itime,1,:,:]
+      N = np.true_divide(Nsum,iensembles+1)
       iLstart,iLend = BM_range(mpiTasks, mpiRank, ix)
-      N = N[:,iLstart:iLend]
+      print ("N shape =", N.shape)
+      print ("N.size=",N.size)
+      print ("N shape =", N.shape)
+      N = N[0,:,iLstart:iLend]
+      print ("N shape =", N.shape)
    elif means == 2:  # Subtract the ensemble mean.
       N = nc.variables[ensembleName]
       mean = np.mean(N)
@@ -137,5 +140,6 @@ def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
 #for itasks in range (50,51):
 #   for irank in range (3,4):
 #      print("irank=",irank,"itasks=",itasks)
-#      N = Btools_getSlabData("Tmerged.nc", "T", 0, itasks, irank, 3)
+#      N = Btools_getSlabData("Tmerged.nc", "T", 0, itasks, irank, 1)
 #      print ("N shape =", N.shape)
+

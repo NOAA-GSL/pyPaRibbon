@@ -5,6 +5,7 @@
 ################################################################
 from   mpi4py import MPI
 import numpy as np
+import array
 import math
 import sys
 
@@ -143,24 +144,32 @@ class BTools:
 
 
         # Do thresholding in local covariance members:
-        self.thresh(local_data, local_data, cthresh, I, J) 
+        self.do_thresh(ldata, ldata, self.myrank_, cthresh, B, I, J) 
         
+        Bp = []
+        Ip = array.array('i')
+        Jp = array.array('i')
+
 	# Do thresholding during exchange loop;
         # Use blocking sends, receives:
         for i in range(self.myrank_, self.nprocs_):
 
-          if ( self.myrank_ < self.nprocs_-1 ):
-            comm_.send(local_data,dest=i+1)
+          if ( i < self.nprocs_-1 ):
+            self.comm_.send(ldata,dest=i+1)
 
-          if ( self.myrank_ > 0 ):
-            rdat = comm_.recv(source=i-1)
+          if ( i > 0 ):
+            rdata = self.comm_.recv(source=i-1)
 
-            self.do_thresh(local_data, rdat, i, cthresh, Bp, Ip, Jp) 
+            self.do_thresh(ldata, rdata, i, cthresh, Bp, Ip, Jp) 
+            print("Bp[",i,"]=")
+            for b in Bp:
+              print(b,Bp,end=' ')
+            print('\n')
 
-          # Append new global indices to return arrays:
-          np.append(B, Bp, 0)
-          np.append(I, Ip, 0)
-          np.append(J, Jp, 0)
+            # Append new global indices to return arrays:
+            np.append(B, Bp, 0)
+            np.append(I, Ip, 0)
+            np.append(J, Jp, 0)
 
         return
 	

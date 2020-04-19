@@ -125,11 +125,12 @@ class BTools:
     #  Desc  : Create 'B-matrix' from distributed data
     #  Args  : ldata  : this task's (local)_ data
     #          cthresh: cov threshold
-    #          I, J  : arrays of indieces into global B mat
-    #			    where cov > thresh
+    #          B     : array of correlations that exceed threshold
+    #          I, J  : arrays of indices into global B mat
+    #		       where cov > thresh. Each is of the same length
     # Returns: none
     ################################################################
-    def buildB(self, ldata, cthresh, I, J):
+    def buildB(self, ldata, cthresh, B, I, J):
 	
 	# Each task sends to all available larger 
         # task ids, and receives from all available
@@ -149,9 +150,10 @@ class BTools:
           if ( self.myrank_ > 0 ):
             rdat = comm_.recv(source=i-1)
 
-            self.do_thresh(local_data, rdat, i, cthresh, Ip, Jp) 
+            self.do_thresh(local_data, rdat, i, cthresh, Bp, Ip, Jp) 
 
           # Append new global indices to return arrays:
+          np.append(B, Bp, 0)
           np.append(I, Ip, 0)
           np.append(J, Jp, 0)
 
@@ -167,11 +169,13 @@ class BTools:
     #          rdata : off-task (remote) data clock, assumed 'flattened'
     #          irecv : task id that rdata is received from
     #          thresh: threshold covariance
-    #          I, J  : arrays of indieces into global B mat
-    #			    where cov > thresh
+    #          B     : array of correlations that exceed threshold
+    #          I, J  : arrays of indices into global B mat
+    #		       where cov > thresh. Each is of the same length
+    #                  as B
     # Returns: 
     ################################################################
-    def do_thresh(self, ldata, rdata, irecv, thresh, I, J):
+    def do_thresh(self, ldata, rdata, irecv, thresh, B, I, J):
 	
         assert len(ldata.shape)==1
         assert len(rdata.shape)==1
@@ -218,6 +222,7 @@ class BTools:
 	          # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
+              B.append(prod)
               I.append(Ig)
               J.append(Jg)
            

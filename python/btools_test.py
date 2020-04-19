@@ -28,12 +28,14 @@ seed(10000);
 for k in range(0,ldims[2]): 
   for j in range(0,ldims[1]): 
     for i in range(0,ldims[0]): 
-     #ldata1[i,j,k] = i + j*ldims[1] + k*ldims[0]*ldims[1] + 10*myrank
-      ldata1[i,j,k] = 1.1*random()
-      ldata2[i,j,k] = 0.9*random()
-      print("ldata1=",ldata1[i,j,k])
+      ldata1[i,j,k] = i + j*ldims[1] + k*ldims[0]*ldims[1] + 10*myrank
+#     ldata1[i,j,k] = 1.1*random()
+#     ldata2[i,j,k] = 0.9*random()
+#     print("ldata1=",ldata1[i,j,k])
 
 #ldata2 = np.multiply(ldata1,nprocs+1)
+ ldata2 = ldata1
+
 
 ldata1 = ldata1.flatten()
 ldata2 = ldata2.flatten()
@@ -45,16 +47,28 @@ BTOOLS = btools.BTools(comm, MPI.FLOAT, gdims)
 J = []
 I = []
 threshold = 0.20
-BTOOLS.do_thresh(ldata1, ldata2, 0, threshold, I, J)
+BTOOLS.do_thresh(ldata1, ldata2, 0, threshold, B, I, J)
 
-print("I=")
-for j in I: 
-    print(j,)
+# Compute analytic solution:
+C = np.tensordot(ldata1, ldata2, 0)
+C[abs(C) < threshold] = 0.
 
-print("J=")
-for j in J: 
-    print(j,)
+#print("I=")
+#for j in I: 
+#    print(j, end=' ')
+#
+#print("J=")
+#for j in J: 
+#    print(j, end=' ')
+#
+#print("B=")
+#for c in B: 
+#    print(c, end=' ')
+#print("main: max number entries  : ", np.prod(gdims))
+#print("main: number entries found: ", len(I))
 
-print("main: max number entries  : ", np.prod(gdims))
-print("main: number entries found: ", len(I))
 
+for i in range(0,len(I)):
+    diff = C[I[i],J[i]] - B[i]
+    if diff != 0:
+        print("I=",J[i], " J=",J[i], " diff=", diff)

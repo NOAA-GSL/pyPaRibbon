@@ -61,6 +61,14 @@ for c in B:
     print(c, end=' ')
 print('\n')
 #
-print("main: max number entries  : ", np.prod(gdims))
-print("main: number entries found: ", len(I))
+#
+#
+lnumber = len(B)                              # local number of entries
+gnumber = comm.allreduce(lnumber, op=MPI.SUM) # global number of entries
+print("main: max number entries  : ", (np.prod(gdims))**2)
+print("main: number entries found: ", len(B))
+
+# TODO: Collect (B,I,J) data from all tasks to task 0, 
+#       and plot full matrix, somehow. Compute 'ribbon
+#       width'?
 

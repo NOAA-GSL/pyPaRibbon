@@ -67,9 +67,10 @@ def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
    # mpiTasks, integer, number of MPI tasks (> 0)
    # mpiRank, integer, rank of the calling process [0, mpiTasks-1] (zero based)
    # means, integer, 1,2,3 where:
-   #    1: T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
-   #    2: N - mean of ensembleName
-   #    3: raw (no subtracted mean)
+   #    1: <T(x,y,x)> = Sum ens T(ens,x,y,z)/num ensembles
+   #    2: T(ens,x,y,z) - <T(x,y,z)>
+   #    3: < T(ens,x,y,z) - <T(x,y,z)> >
+   #    4: raw (no subtracted mean)
    # N, numpy array, data for a particular mpiRank
 
    #

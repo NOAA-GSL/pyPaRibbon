@@ -16,7 +16,7 @@ class BTools:
     #  Method: __init__
     #  Desc  : Constructor
     #  Args  : comm   (in): communicator
-    #          ftype  (in): MPI float type of data
+    #          ftype  (in): MPI float type of data 
     #          gn     (in): 1d array of global data sizes
     # Returns: none
     ################################################################
@@ -27,12 +27,60 @@ class BTools:
         self.myrank_ = comm.Get_rank()
         self.nprocs_ = comm.Get_size()
         self.float_type_ = ftype
+
+        
+        # Build a new communicator for the
+	# GatherV:
+        if ( self.myrank_ > 0 ):
+           # We include in new comm all ranks from
+	   # myrank to nprocs-1 (so, we exclude
+	   # from (0, myrank-1):
+    	   group = comm.Get_group()
+           pexcl = np.arange(0,self.myrank_,dtype='i')
+       	   newgroup = group.Excl(pexcl)
+	   self.newcomm_ = self.comm_.Create(newgroup)
+           group.Free()
+           newgroup.Free()
+	else
+           self.newcomm_ = comm
  
         self.send_type_ = ftype
         self.recv_type_ = []
         assert len(gn)==3, "Invalid dimension spec"
         self.gn_ = gn
-       
+        self.binit_ = 0
+
+	# Create recv buffs for this rank:
+        nmax = 0
+	for i in range(0,self.nprocs_):
+            (ib, ie) = BTools.range(1, self.gn_[1], self.nprocs_, i)
+	    nmax = max(nmax, ie-ib+1)
+
+        if   ftype == MPI.FLOAT:
+	  nptype = np.single
+        elif ftype == MPI.DOUBLE:
+	  nptype = np.double
+        else:
+	  assert 0
+        
+  	nsize = self.gn_[1]*self.gn_[2]*nmax
+	self.recvbuff_ = np.ndarray(self.newcomm_.Get_size(),nsize,dtype=nptype)
+	# end, constructor
+
+
+    ################################################################
+    #  Method: __del__
+    #  Desc  : Destructor
+    #  Args  : self
+    # Returns: none
+    ################################################################
+    def __del__(self):       
+
+        if self.newcomm_: self.newcomm_.Free()
+	
+	# end, destructor
+
+
 
     ################################################################
     #  Method: range
@@ -59,7 +107,7 @@ class BTools:
         if i2 > myrank: 
            ie = ie + 1
 	
-        return ib, ie
+        return ib, ie  # end, range method
 	
 
     ################################################################
@@ -94,7 +142,7 @@ class BTools:
         otype    = itype.create_subarray(sizes, subsizes, idist, order = MPI.ORDER_FORTRAN)
         otype.Commit()
 
-        return
+        return # end, trans_type method
 	
 
     ################################################################
@@ -121,9 +169,9 @@ class BTools:
           self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
                      ib, ie, itype, rtype)
         recv_type_[i] = rtype
-            
+        self.binit_ = 1       
 
-        return
+        return  # end, init method
 	
 
     ################################################################
@@ -146,21 +194,19 @@ class BTools:
         # Do thresholding in local covariance members:
         self.do_thresh(ldata, ldata, self.myrank_, cthresh, B, I, J) 
         
+        # Declare tmp data:
         Bp = []
         Ip = array.array('i')
         Jp = array.array('i')
 
-	# Do thresholding during exchange loop;
-        # Use blocking sends, receives:
-        for i in range(self.myrank_, self.nprocs_):
+	# Gather all slabs here to perform thresholding:
+        self.newcomm_.GatherV(ldata, self.recvbuff_, self.myrank_)
 
-          if ( i < self.nprocs_-1 ):
-            self.comm_.send(ldata,dest=i+1)
+        for i in range(0, self.newcomm_.Get_size()):
+            rdata   = self.ercvbuff_[i,:]
+            srcrank = self.newcomm_.Get_rank()
+            self.do_thresh(ldata, rdata, srcrank, cthresh, Bp, Ip, Jp) 
 
-          if ( i > 0 ):
-            rdata = self.comm_.recv(source=i-1)
-
-            self.do_thresh(ldata, rdata, i, cthresh, Bp, Ip, Jp) 
             print("Bp[",i,"]=")
             for b in Bp:
               print(b,Bp,end=' ')
@@ -171,10 +217,10 @@ class BTools:
             np.append(I, Ip, 0)
             np.append(J, Jp, 0)
 
-        return
+        return   # end, buildB method
 	
 
-    ################################################################
+    ####################################################
     #  Method: do_thresh
     #  Desc  : With local data, and off-task data, compute
     #          global indices where covariance exceeds
@@ -248,6 +294,6 @@ class BTools:
 
         print("do_thresh: number found=",n)
 
-        return
+        return  # end, do_thresh method
 	
 

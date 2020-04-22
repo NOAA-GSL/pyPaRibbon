@@ -30,18 +30,18 @@ class BTools:
 
         
         # Build a new communicator for the
-	# GatherV:
+	    # GatherV:
         if ( self.myrank_ > 0 ):
            # We include in new comm all ranks from
 	   # myrank to nprocs-1 (so, we exclude
 	   # from (0, myrank-1):
-    	   group = comm.Get_group()
+           group = comm.Get_group()
            pexcl = np.arange(0,self.myrank_,dtype='i')
        	   newgroup = group.Excl(pexcl)
-	   self.newcomm_ = self.comm_.Create(newgroup)
+           self.newcomm_ = self.comm_.Create(newgroup)
            group.Free()
            newgroup.Free()
-	else
+        else:
            self.newcomm_ = comm
  
         self.send_type_ = ftype
@@ -50,21 +50,23 @@ class BTools:
         self.gn_ = gn
         self.binit_ = 0
 
-	# Create recv buffs for this rank:
+        # Create recv buffs for this task:
         nmax = 0
-	for i in range(0,self.nprocs_):
+        for i in range(0,self.nprocs_):
             (ib, ie) = BTools.range(1, self.gn_[1], self.nprocs_, i)
-	    nmax = max(nmax, ie-ib+1)
+        nmax = max(nmax, ie-ib+1)
 
         if   ftype == MPI.FLOAT:
-	  nptype = np.single
+            nptype = np.float
         elif ftype == MPI.DOUBLE:
-	  nptype = np.double
+            nptype = np.double
         else:
-	  assert 0
+            assert 0, "Input type must be float or double"
         
-  	nsize = self.gn_[1]*self.gn_[2]*nmax
-	self.recvbuff_ = np.ndarray(self.newcomm_.Get_size(),nsize,dtype=nptype)
+        szbuff = gn[1]*gn[2]*nmax 
+        dims   = ([self.newcomm_.Get_size(), szbuff])
+        self.recvbuff_ = np.ndarray(dims, dtype=nptype)
+
 	# end, constructor
 
 
@@ -74,9 +76,10 @@ class BTools:
     #  Args  : self
     # Returns: none
     ################################################################
-    def __del__(self):       
+#   def __del__(self):       
 
-        if self.newcomm_: self.newcomm_.Free()
+        #if self.newcomm_: self.newcomm_.Free()
+        #self.newcomm_.Free()
 	
 	# end, destructor
 
@@ -200,17 +203,27 @@ class BTools:
         Jp = array.array('i')
 
 	# Gather all slabs here to perform thresholding:
-        self.newcomm_.GatherV(ldata, self.recvbuff_, self.myrank_)
+     
+        print(self.myrank_, ": buildB: buff shape=", np.shape(self.recvbuff_))
+        print(self.myrank_, ": buildB: calling Gatherv...")
+        print(self.myrank_, ": buildB: ldata=",ldata)
+        sys.stdout.flush()
+#       self.comm_.Gatherv(ldata, self.recvbuff_, root=self.myrank_)
+        recvbuff = self.comm_.allgather(ldata)
+        recvbuff = self.recvbuff_
+        print(self.myrank_, ": buildB: Gatherv done. recvbuff.shape=", np.shape(recvbuff))
+        sys.stdout.flush()
+
 
         for i in range(0, self.newcomm_.Get_size()):
-            rdata   = self.ercvbuff_[i,:]
+            rdata   = self.recvbuff_[i,:]
             srcrank = self.newcomm_.Get_rank()
             self.do_thresh(ldata, rdata, srcrank, cthresh, Bp, Ip, Jp) 
 
-            print("Bp[",i,"]=")
-            for b in Bp:
-              print(b,Bp,end=' ')
-            print('\n')
+#           print("Bp[",i,"]=")
+#           for b in Bp:
+#             print(b,Bp,end=' ')
+#           print('\n')
 
             # Append new global indices to return arrays:
             np.append(B, Bp, 0)

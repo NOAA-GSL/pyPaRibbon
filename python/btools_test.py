@@ -64,7 +64,8 @@ print('\n')
 #
 #
 lnumber = len(B)                              # local number of entries
-gnumber = comm.allreduce(lnumber, op=MPI.SUM) # global number of entries
+#gnumber = comm.allreduce(lnumber, op=MPI.SUM) # global number of entries
+gnumber = lnumber
 print("main: max number entries  : ", (np.prod(gdims))**2)
 print("main: number entries found: ", len(B))
 

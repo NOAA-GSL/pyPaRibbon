@@ -217,7 +217,6 @@ class BTools:
 	
         assert len(ldata.shape)==1
         assert len(rdata.shape)==1
-        assert len(rdata)==len(ldata)
         assert len(B)==len(I) and len(B)==len(J)
 
         imin = 1

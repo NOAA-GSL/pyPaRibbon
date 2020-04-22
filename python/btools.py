@@ -172,28 +172,26 @@ class BTools:
 
 	# Gather all slabs here to perform thresholding:
      
-        print(self.myrank_, ": buildB: calling Allgather...")
-        print(self.myrank_, ": buildB: ldata=",ldata)
 #       print(self.myrank_, ": buildB: recvbuff=",self.recvbuff_)
-        sys.stdout.flush()
+#       sys.stdout.flush()
 
-        self.comm_.barrier()
-#       rbuff = np.ndarray(([self.nprocs_, len(ldata)]), dtype=float)
         self.comm_.Allgather(ldata,self.recvbuff_)
-        print(self.myrank_, ": buildB: Gatherv done. recvbuff.shape=", np.shape(self.recvbuff_))
-        sys.stdout.flush()
 
         for i in range(0, self.nprocs_):
-            self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, Bp, Ip, Jp) 
+            n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, Bp, Ip, Jp) 
 
-            print(self.myrank_, "buildB: Ip[",i,"]=", Ip)
-            print(self.myrank_, "buildB: Jp[",i,"]=", Jp)
-            print(self.myrank_, "buildB: Bp[",i,"]=", Bp)
+#           print(self.myrank_, "buildB: Ip[",i,"]=", Ip)
+#           print(self.myrank_, "buildB: Jp[",i,"]=", Jp)
+#           print(self.myrank_, "buildB: Bp[",i,"]=", Bp)
 
             # Append new global indices to return arrays:
-            B.extend(Bp)
-            I.extend(Ip)
-            J.extend(Jp)
+            B.extend(Bp[0:n])
+            I.extend(Ip[0:n])
+            J.extend(Jp[0:n])
+
+#           print(self.myrank_, "buildB: len(l)[",i,"]=", len(ldata),\
+#                 " len(r)[",i,"]=",len(self.recvbuff_[i,:]))
+#           print(self.myrank_, "buildB: len(B)[",i,"]=", len(B))
 
 
         return   # end, buildB method
@@ -210,14 +208,17 @@ class BTools:
     #          thresh: threshold covariance
     #          B     : array of correlations that exceed threshold
     #          I, J  : arrays of indices into global B mat
-    #		       where cov > thresh. Each is of the same length
+    #		       where cov > thresh. We assume that I, J 
+    #                  are the same length as B
     #                  as B
-    # Returns: 
+    # Returns: number of values found that meet threshold criterion
     ################################################################
     def do_thresh(self, ldata, rdata, irecv, thresh, B, I, J):
 	
         assert len(ldata.shape)==1
         assert len(rdata.shape)==1
+        assert len(rdata)==len(ldata)
+        assert len(B)==len(I) and len(B)==len(J)
 
         imin = 1
         jmin = 1
@@ -247,11 +248,12 @@ class BTools:
           itmp = ig*self.gn_[1]*self.gn_[2]
           jg   = int( (lnb+i-itmp)/self.gn_[1] )
           kg   =  lnb+i - itmp  - jg*self.gn_[1]
-          print("i=",i," ig=",ig," jg=",jg,"kg=",kg)
+
+#         print("i=",i," ig=",ig," jg=",jg,"kg=",kg)
 
 	      # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
-          print("Ig=",Ig)
+#         print("Ig=",Ig)
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
@@ -262,17 +264,22 @@ class BTools:
               jg   = int( (rnb+j-itmp)/self.gn_[1] )
               kg   =  rnb+j - itmp  - jg*self.gn_[1]
            
-	          # Compute global matrix indices: 	    
+	      # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
-              B.append(prod)
-              I.append(int(Ig))
-              J.append(int(Jg))
+              if len(B) < n+1: 
+                B.append(prod)
+                I.append(int(Ig))
+                J.append(int(Jg))
+              else:
+                B[n] = prod
+                I[n] = int(Ig)
+                J[n] = int(Jg)
            
               n += 1
 
-        print(self.myrank_, ": do_thresh: number found=",n)
+        print(self.myrank_, ": do_thresh: number found=",n, " len(B)=", len(B))
 
-        return  # end, do_thresh method
+        return n  # end, do_thresh method
 	
 

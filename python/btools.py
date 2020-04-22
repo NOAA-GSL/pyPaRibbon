@@ -28,22 +28,6 @@ class BTools:
         self.nprocs_ = comm.Get_size()
         self.float_type_ = ftype
 
-        
-        # Build a new communicator for the
-	    # GatherV:
-        if ( self.myrank_ > 0 ):
-           # We include in new comm all ranks from
-	   # myrank to nprocs-1 (so, we exclude
-	   # from (0, myrank-1):
-           group = comm.Get_group()
-           pexcl = np.arange(0,self.myrank_,dtype='i')
-       	   newgroup = group.Excl(pexcl)
-           self.newcomm_ = self.comm_.Create(newgroup)
-           group.Free()
-           newgroup.Free()
-        else:
-           self.newcomm_ = comm
- 
         self.send_type_ = ftype
         self.recv_type_ = []
         assert len(gn)==3, "Invalid dimension spec"
@@ -51,10 +35,10 @@ class BTools:
         self.binit_ = 0
 
         # Create recv buffs for this task:
-        nmax = 0
+        nxmax = 0
         for i in range(0,self.nprocs_):
-            (ib, ie) = BTools.range(1, self.gn_[1], self.nprocs_, i)
-        nmax = max(nmax, ie-ib+1)
+            (ib, ie) = BTools.range(1, self.gn_[0], self.nprocs_, i)
+            nxmax = max(nxmax, ie-ib+1)
 
         if   ftype == MPI.FLOAT:
             nptype = np.float
@@ -63,26 +47,14 @@ class BTools:
         else:
             assert 0, "Input type must be float or double"
         
-        szbuff = gn[1]*gn[2]*nmax 
-        dims   = ([self.newcomm_.Get_size(), szbuff])
+        szbuff = gn[1]*gn[2]*nxmax 
+        print("__init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
+        dims   = ([self.comm_.Get_size(), szbuff])
         self.recvbuff_ = np.ndarray(dims, dtype=nptype)
+        self.recvbuff_.fill(self.myrank_)
+
 
 	# end, constructor
-
-
-    ################################################################
-    #  Method: __del__
-    #  Desc  : Destructor
-    #  Args  : self
-    # Returns: none
-    ################################################################
-#   def __del__(self):       
-
-        #if self.newcomm_: self.newcomm_.Free()
-        #self.newcomm_.Free()
-	
-	# end, destructor
-
 
 
     ################################################################
@@ -189,13 +161,9 @@ class BTools:
     ################################################################
     def buildB(self, ldata, cthresh, B, I, J):
 	
-	# Each task sends to all available larger 
-        # task ids, and receives from all available
-        # lower task ids.
-
 
         # Do thresholding in local covariance members:
-        self.do_thresh(ldata, ldata, self.myrank_, cthresh, B, I, J) 
+#       self.do_thresh(ldata, ldata, self.myrank_, cthresh, B, I, J) 
         
         # Declare tmp data:
         Bp = []
@@ -204,31 +172,29 @@ class BTools:
 
 	# Gather all slabs here to perform thresholding:
      
-        print(self.myrank_, ": buildB: buff shape=", np.shape(self.recvbuff_))
-        print(self.myrank_, ": buildB: calling Gatherv...")
+        print(self.myrank_, ": buildB: calling Allgather...")
         print(self.myrank_, ": buildB: ldata=",ldata)
-        sys.stdout.flush()
-#       self.comm_.Gatherv(ldata, self.recvbuff_, root=self.myrank_)
-        recvbuff = self.comm_.allgather(ldata)
-        recvbuff = self.recvbuff_
-        print(self.myrank_, ": buildB: Gatherv done. recvbuff.shape=", np.shape(recvbuff))
+#       print(self.myrank_, ": buildB: recvbuff=",self.recvbuff_)
         sys.stdout.flush()
 
+        self.comm_.barrier()
+#       rbuff = np.ndarray(([self.nprocs_, len(ldata)]), dtype=float)
+        self.comm_.Allgather(ldata,self.recvbuff_)
+        print(self.myrank_, ": buildB: Gatherv done. recvbuff.shape=", np.shape(self.recvbuff_))
+        sys.stdout.flush()
 
-        for i in range(0, self.newcomm_.Get_size()):
-            rdata   = self.recvbuff_[i,:]
-            srcrank = self.newcomm_.Get_rank()
-            self.do_thresh(ldata, rdata, srcrank, cthresh, Bp, Ip, Jp) 
+        for i in range(0, self.nprocs_):
+            self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, Bp, Ip, Jp) 
 
-#           print("Bp[",i,"]=")
-#           for b in Bp:
-#             print(b,Bp,end=' ')
-#           print('\n')
+            print(self.myrank_, "buildB: Ip[",i,"]=", Ip)
+            print(self.myrank_, "buildB: Jp[",i,"]=", Jp)
+            print(self.myrank_, "buildB: Bp[",i,"]=", Bp)
 
             # Append new global indices to return arrays:
-            np.append(B, Bp, 0)
-            np.append(I, Ip, 0)
-            np.append(J, Jp, 0)
+            B.extend(Bp)
+            I.extend(Ip)
+            J.extend(Jp)
+
 
         return   # end, buildB method
 	
@@ -305,7 +271,7 @@ class BTools:
            
               n += 1
 
-        print("do_thresh: number found=",n)
+        print(self.myrank_, ": do_thresh: number found=",n)
 
         return  # end, do_thresh method
 	

@@ -17,12 +17,13 @@ nprocs = comm.Get_size()
 print("main: nprocs=",nprocs, " rank=", myrank)
 
 # Create some (Fortran-ordered) test data:
-ldims  = ([2,2,1]);
-gdims  = np.multiply(ldims, nprocs) 
-gdims[2] = 1
+ldims  = ([2,2*nprocs,1]);
+gdims  = ([2*nprocs,ldims[1],1])
+
 ldata1 = np.ndarray(ldims,dtype=float,order='F') 
-print("main: ldims", ldims)
-print("main: gdims", gdims)
+print(myrank, ": main: ldims", ldims)
+print(myrank, ": main: gdims", gdims)
+sys.stdout.flush()
 
 seed(10000);
 for k in range(0,ldims[2]): 
@@ -36,38 +37,29 @@ for k in range(0,ldims[2]):
 
 ldata1 = ldata1.flatten()
 
-print("main: ldata1", ldata1)
+print(myrank, ": main: ldata1", ldata1)
+sys.stdout.flush()
 BTOOLS = btools.BTools(comm, MPI.FLOAT, gdims)
 
 B = []
 J = array.array('i')
 I = array.array('i')
-threshold = 0.0
+threshold = -1.0
+
+print(myrank, ": main: calling buildB...")
+sys.stdout.flush()
 BTOOLS.buildB(ldata1, threshold, B, I, J)
 
 
-print("I=")
-for j in I: 
-    print(j, end=' ')
-print('\n')
-#
-print("J=")
-for j in J: 
-    print(j, end=' ')
-print('\n')
-#
-print("B=")
-for c in B: 
-    print(c, end=' ')
-print('\n')
-#
-#
-#
-lnumber = len(B)                              # local number of entries
+print(myrank, ": main: I=", I)
+print(myrank, ": main: J=", J)
+print(myrank, ": main: B=", B)
+
+lnumber = len(B)                               # local number of entries
 #gnumber = comm.allreduce(lnumber, op=MPI.SUM) # global number of entries
 gnumber = lnumber
-print("main: max number entries  : ", (np.prod(gdims))**2)
-print("main: number entries found: ", len(B))
+print(myrank, ": main: max number entries  : ", (np.prod(gdims))**2)
+print(myrank, ": main: number entries found: ", len(B))
 
 # TODO: Collect (B,I,J) data from all tasks to task 0, 
 #       and plot full matrix, somehow. Compute 'ribbon

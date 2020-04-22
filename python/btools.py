@@ -15,20 +15,20 @@ class BTools:
     ################################################################
     #  Method: __init__
     #  Desc  : Constructor
-    #  Args  : comm   (in): communicator
-    #          ftype  (in): MPI float type of data 
-    #          gn     (in): 1d array of global data sizes
+    #  Args  : comm    (in): communicator
+    #          mpiftype(in): MPI float type of data 
+    #          gn      (in): 1d array of global data sizes
     # Returns: none
     ################################################################
-    def __init__(self, comm, ftype, gn):
+    def __init__(self, comm, mpiftype, gn):
 
         # Class member data:
-        self.comm_   = comm
-        self.myrank_ = comm.Get_rank()
-        self.nprocs_ = comm.Get_size()
-        self.float_type_ = ftype
+        self.comm_     = comm
+        self.myrank_   = comm.Get_rank()
+        self.nprocs_   = comm.Get_size()
+        self.mpiftype_ = mpiftype
 
-        self.send_type_ = ftype
+        self.send_type_ = mpiftype
         self.recv_type_ = []
         assert len(gn)==3, "Invalid dimension spec"
         self.gn_ = gn
@@ -40,19 +40,31 @@ class BTools:
             (ib, ie) = BTools.range(1, self.gn_[0], self.nprocs_, i)
             nxmax = max(nxmax, ie-ib+1)
 
-        if   ftype == MPI.FLOAT:
-            nptype = np.float
-        elif ftype == MPI.DOUBLE:
-            nptype = np.double
+        if   mpiftype == MPI.FLOAT:
+            self.npftype_ = np.float
+        elif mpiftype == MPI.DOUBLE:
+            self.npftype_ = np.double
         else:
             assert 0, "Input type must be float or double"
         
         szbuff = gn[1]*gn[2]*nxmax 
         print("__init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
-        dims   = ([self.comm_.Get_size(), szbuff])
-        self.recvbuff_ = np.ndarray(dims, dtype=nptype)
+        sys.stdout.flush()
+        self.buffdims_ = ([self.comm_.Get_size(), szbuff])
+        self.recvbuff_ = np.ndarray(self.buffdims_, dtype=self.npftype_)
         self.recvbuff_.fill(self.myrank_)
 
+        nd = self.buffdims_
+        if   mpiftype == MPI.FLOAT:
+            self.Bp_ = array.array('f') * nd[1]
+        elif mpiftype == MPI.DOUBLE:
+            self.Bp_ = array.array('d') * nd[1] 
+        else:
+            assert 0, "Input type must be float or double"
+        self.Ip_ = array.array('i') * nd[1]
+        self.Jp_ = array.array('i') * nd[1]
+        print("__init__: len(Bp)==",len(self.Bp_))
+        sys.stdout.flush()
 
 	# end, constructor
 
@@ -154,8 +166,8 @@ class BTools:
     #  Desc  : Create 'B-matrix' from distributed data
     #  Args  : ldata  : this task's (local)_ data
     #          cthresh: cov threshold
-    #          B     : array of correlations that exceed threshold
-    #          I, J  : arrays of indices into global B mat
+    #          B      : array of correlations that exceed threshold
+    #          I, J   : arrays of indices into global B mat
     #		       where cov > thresh. Each is of the same length
     # Returns: none
     ################################################################
@@ -165,11 +177,6 @@ class BTools:
         # Do thresholding in local covariance members:
 #       self.do_thresh(ldata, ldata, self.myrank_, cthresh, B, I, J) 
         
-        # Declare tmp data:
-        Bp = []
-        Ip = array.array('i')
-        Jp = array.array('i')
-
 	# Gather all slabs here to perform thresholding:
      
 #       print(self.myrank_, ": buildB: recvbuff=",self.recvbuff_)
@@ -177,17 +184,23 @@ class BTools:
 
         self.comm_.Allgather(ldata,self.recvbuff_)
 
-        for i in range(0, self.nprocs_):
-            n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, Bp, Ip, Jp) 
+        # Declare tmp data:
 
-#           print(self.myrank_, "buildB: Ip[",i,"]=", Ip)
-#           print(self.myrank_, "buildB: Jp[",i,"]=", Jp)
-#           print(self.myrank_, "buildB: Bp[",i,"]=", Bp)
+        for i in range(0, self.nprocs_):
+            print(self.myrank_, "BTools::buildB: doing partition ", i, "...")
+            sys.stdout.flush()
+            n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
+            print(self.myrank_, "BTools::buildB: partition threshold done.")
+            sys.stdout.flush()
+
+#           print(self.myrank_, "buildB: Ip[",i,"]=", self.Ip_)
+#           print(self.myrank_, "buildB: Jp[",i,"]=", self.Jp_)
+#           print(self.myrank_, "buildB: Bp[",i,"]=", self.Bp_)
 
             # Append new global indices to return arrays:
-            B.extend(Bp[0:n])
-            I.extend(Ip[0:n])
-            J.extend(Jp[0:n])
+            B.extend(self.Bp_[0:n])
+            I.extend(self.Ip_[0:n])
+            J.extend(self.Jp_[0:n])
 
 #           print(self.myrank_, "buildB: len(l)[",i,"]=", len(ldata),\
 #                 " len(r)[",i,"]=",len(self.recvbuff_[i,:]))
@@ -278,6 +291,7 @@ class BTools:
               n += 1
 
         print(self.myrank_, ": do_thresh: number found=",n, " len(B)=", len(B))
+        sys.stdout.flush()
 
         return n  # end, do_thresh method
 	

@@ -51,15 +51,14 @@ sys.stdout.flush()
 BTOOLS.buildB(ldata1, threshold, B, I, J)
 
 
-print(myrank, ": main: I=", I)
-print(myrank, ": main: J=", J)
-print(myrank, ": main: B=", B)
+#print(myrank, ": main: I=", I)
+#print(myrank, ": main: J=", J)
+#print(myrank, ": main: B=", B)
 
 lnumber = len(B)                               # local number of entries
-#gnumber = comm.allreduce(lnumber, op=MPI.SUM) # global number of entries
-gnumber = lnumber
+gnumber = comm.allreduce(lnumber, op=MPI.SUM) # global number of entries
 print(myrank, ": main: max number entries  : ", (np.prod(gdims))**2)
-print(myrank, ": main: number entries found: ", len(B))
+print(myrank, ": main: number entries found: ", gnumber)
 
 # TODO: Collect (B,I,J) data from all tasks to task 0, 
 #       and plot full matrix, somehow. Compute 'ribbon

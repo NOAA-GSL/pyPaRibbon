@@ -54,15 +54,16 @@ class BTools:
         self.recvbuff_ = np.ndarray(self.buffdims_, dtype=self.npftype_)
         self.recvbuff_.fill(self.myrank_)
 
-        nd = self.buffdims_
+        linsz = szbuff**2
         if   mpiftype == MPI.FLOAT:
-            self.Bp_ = array.array('f') * nd[1]
+            self.Bp_ = array.array('f' , (0.0,)*linsz)
         elif mpiftype == MPI.DOUBLE:
-            self.Bp_ = array.array('d') * nd[1] 
+            self.Bp_ = array.array('d' , (0.0,)*linsz)
         else:
             assert 0, "Input type must be float or double"
-        self.Ip_ = array.array('i') * nd[1]
-        self.Jp_ = array.array('i') * nd[1]
+        self.Ip_ = array.array('i', (0,)*linsz)
+        self.Jp_ = array.array('i', (0,)*linsz)
+
         print("__init__: len(Bp)==",len(self.Bp_))
         sys.stdout.flush()
 
@@ -188,6 +189,7 @@ class BTools:
 
         for i in range(0, self.nprocs_):
             print(self.myrank_, "BTools::buildB: doing partition ", i, "...")
+#           print(self.myrank_, "BTools::buildB: len(Bp)=",len(self.Bp_))
             sys.stdout.flush()
             n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
             print(self.myrank_, "BTools::buildB: partition threshold done.")
@@ -279,14 +281,9 @@ class BTools:
 	      # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
-              if len(B) < n+1: 
-                B.append(prod)
-                I.append(int(Ig))
-                J.append(int(Jg))
-              else:
-                B[n] = prod
-                I[n] = int(Ig)
-                J[n] = int(Jg)
+              B[n] = prod
+              I[n] = int(Ig)
+              J[n] = int(Jg)
            
               n += 1
 

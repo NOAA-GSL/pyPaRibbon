@@ -139,12 +139,16 @@ sys.stdout.flush()
 #
 # Get the local data.
 #
-N = Btools_getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 4,2)
+N = Btools_getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 4, 0)
+
+print(mpiRank, ": main: len(N)=",len(N), " N.shape=", N.shape)
 
 #
 # Instantiate the Btools class.
 #
-gdims = np.array([199,125,1])
+gdims = N.shape
+if len(N.shape) == 2:
+    gdims = ([gdims[0], gdims[1], 1]) # require len(gdims)=3
 print (mpiRank, ": main: constructing BTools, gdims=",gdims)
 sys.stdout.flush()
 BTools = btools.BTools(comm, MPI.FLOAT, gdims)
@@ -158,7 +162,10 @@ I          = []
 J          = []
 threshhold = 0.8
 N = N.flatten()
-print (mpiRank, ": main: calling BTools.buildB...")
+if len(N) == 0 :
+    print(mpiRank,": main: No data!")
+    exit(1)
+print (mpiRank, ": main: calling BTools.buildB...; len(N)=",len(N))
 sys.stdout.flush()
 BTools.buildB(N, threshhold, B, I, J) 
 

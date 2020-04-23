@@ -40,19 +40,21 @@ class BTools:
             (ib, ie) = BTools.range(1, self.gn_[0], self.nprocs_, i)
             nxmax = max(nxmax, ie-ib+1)
 
-        if   mpiftype == MPI.FLOAT:
-            self.npftype_ = np.float
-        elif mpiftype == MPI.DOUBLE:
-            self.npftype_ = np.double
-        else:
-            assert 0, "Input type must be float or double"
-        
         szbuff = gn[1]*gn[2]*nxmax 
         print(self.myrank_, ": __init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
         sys.stdout.flush()
         self.buffdims_ = ([self.comm_.Get_size(), szbuff])
-        self.recvbuff_ = np.ndarray(self.buffdims_, dtype=self.npftype_)
+        if   mpiftype == MPI.FLOAT:
+            self.recvbuff_ = np.ndarray(self.buffdims_, dtype='f')
+        elif mpiftype == MPI.DOUBLE:
+            self.recvbuff_ = np.ndarray(self.buffdims_, dtype='d')
+        else:
+            assert 0, "Input type must be float or double"
+        
         self.recvbuff_.fill(self.myrank_)
+
+        print("BTools::__init__: type(recvbuff)=", type(self.recvbuff_.dtype.type))
+        sys.stdout.flush()
 
         linsz = szbuff**2
         if   mpiftype == MPI.FLOAT:
@@ -179,7 +181,7 @@ class BTools:
 
 	    # Gather all slabs here to perform thresholding:
      
-        print(self.myrank_, ": BTools::buildB: len(ldata)=", len(ldata), "len(recvbuff)=", len(self.recvbuff_))
+        print(self.myrank_, ": BTools::buildB: len(ldata)=", len(ldata), "len(recvbuff)=", self.recvbuff_.shape)
         sys.stdout.flush()
 
         self.comm_.barrier()

@@ -234,6 +234,14 @@ class BTools:
         assert len(rdata.shape)==1
         assert len(B)==len(I) and len(B)==len(J)
 
+        
+        # Just in case, resize operand arrays if necessary:
+        if len(ldata)*len(rdata) > len(self.Bp_):
+            self.Bp_.extend(len(ldata)*len(rdata) - len(self.Bp_) + 1)
+            self.Ip_.extend(len(ldata)*len(rdata) - len(self.Bp_) + 1)
+            self.Jp_.extend(len(ldata)*len(rdata) - len(self.Bp_) + 1)
+            
+
         imin = 1
         jmin = 1
         kmin = 1
@@ -251,6 +259,7 @@ class BTools:
         ib -= 1
         rnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
 
+        
     	# Order s.t. we multiply
 	    #    Transpose(ldata) X rdata:
         # wherer Trarnspose(ldata) is a column vector, 

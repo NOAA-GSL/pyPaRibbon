@@ -238,6 +238,9 @@ class BTools:
         # Just in case, resize operand arrays if necessary:
         if len(ldata)*len(rdata) > len(self.Bp_):
             x = Bp_[0]
+            self.Bp_.clear()
+            self.Ip_.clear()
+            self.Jp_.clear()
             self.Bp_ = [0.0]*(len(ldata)*len(rdata))
             self.Ip_ = [0]  *(len(ldata)*len(rdata)) 
             self.Jp_ = [0]  *(len(ldata)*len(rdata)) 

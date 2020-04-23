@@ -5,8 +5,8 @@ from netCDF4 import Dataset
 
 import btools
 
-def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
-   # N = Btools_getSlabData(fileName, ensembleName, itime, mpiTask, mpiRank, means)
+def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means, decimate):
+   # N = Btools_getSlabData(fileName, ensembleName, itime, mpiTask, mpiRank, means, decimate)
    # N is a slab of data (x,y,z) 
    #
    # fileName, string, filename of the netCDF file to open
@@ -18,6 +18,8 @@ def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
    #    1: T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
    #    2: N - mean of ensembleName
    #    3: raw (no subtracted mean)
+   # decimate, integer, shorten the slab by decimate (0 is no decimate)
+   #   -  So, if you decimate by 4, you keep every 4th data point
    # N, numpy array, data for a particular mpiRank
 
    #
@@ -69,7 +71,12 @@ def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
       N = N[0,0,0,:,iLstart:iLend] - mean
    elif means == 3:
       N = nc.variables[ensembleName]
-
+      Nsum = np.zeros([1,iy,ix],dtype=float)
+      for i in range(0,iensembles):
+         Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
+      N = np.true_divide(Nsum,iensembles+1)
+      iLstart,iLend = BTools_range(mpiTasks, mpiRank, ix)
+      N = N[0,0,0,:,iLstart:iLend] - mean
    elif means == 4:
       N = nc.variables[ensembleName]
       ix = N.shape[4] # The right most index dimension of N.
@@ -77,6 +84,10 @@ def Btools_getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means):
       N = N[0,0,0,:,iLstart:iLend]
    else:
       sys.exit("Error, bad mean value!")
+
+   if decimate != 0:
+      print ("N shape=",N.shape)
+      N = N[::decimate,iLstart:iLend:decimate]
 
    nc.close
    print ("N shape =", N.shape)
@@ -122,19 +133,19 @@ mpiTasks = MPI.COMM_WORLD.Get_size()
 mpiRank  = MPI.COMM_WORLD.Get_rank()
 name     = MPI.Get_processor_name()
 
-print("main: tasks=",mpiTasks, " rank=", mpiRank,"machine name=",name)
+print(mpiRank, ": main: tasks=",mpiTasks, " rank=", mpiRank,"machine name=",name)
 sys.stdout.flush()
 
 #
 # Get the local data.
 #
-N = Btools_getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 4)
+N = Btools_getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 4,2)
 
 #
-# Substantiate the Btools class.
+# Instantiate the Btools class.
 #
-gdims = np.array([399,249,1])
-print ("main: constrructing BTools, gdims=",gdims)
+gdims = np.array([199,125,1])
+print (mpiRank, ": main: constructing BTools, gdims=",gdims)
 sys.stdout.flush()
 BTools = btools.BTools(comm, MPI.FLOAT, gdims)
 
@@ -147,18 +158,19 @@ I          = []
 J          = []
 threshhold = 0.8
 N = N.flatten()
-print ("main: calling BTools.buildB...")
+print (mpiRank, ": main: calling BTools.buildB...")
 sys.stdout.flush()
 BTools.buildB(N, threshhold, B, I, J) 
 
-print ("len(B)=",len(B))
-print ("len(I)=",len(I))
-print ("len(J)=",len(J))
+print (mpiRank, ": len(B)=",len(B))
+print (mpiRank, ": len(I)=",len(I))
+print (mpiRank, ": len(J)=",len(J))
 
 lcount = len(B)                             # local number of entries
+comm.barrier()
 gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
-print(myrank, ": main: max number entries  : ", (np.prod(gdims))**2)
-print(myrank, ": main: number entries found: ", gcount)
+print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
+print(mpiRank, ": main: number entries found: ", gcount)
 
 # TODO: Collect (B,I,J) data from all tasks to task 0, 
 #       and plot full matrix, somehow. Compute 'ribbon

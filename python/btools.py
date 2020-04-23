@@ -48,7 +48,7 @@ class BTools:
             assert 0, "Input type must be float or double"
         
         szbuff = gn[1]*gn[2]*nxmax 
-        print("__init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
+        print(self.myrank_, ": __init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
         sys.stdout.flush()
         self.buffdims_ = ([self.comm_.Get_size(), szbuff])
         self.recvbuff_ = np.ndarray(self.buffdims_, dtype=self.npftype_)
@@ -64,8 +64,8 @@ class BTools:
         self.Ip_ = array.array('i', (0,)*linsz)
         self.Jp_ = array.array('i', (0,)*linsz)
 
-        print("__init__: len(Bp)==",len(self.Bp_))
-        sys.stdout.flush()
+#       print(self.myrank_,": __init__: len(Bp)==",len(self.Bp_))
+#       sys.stdout.flush()
 
 	# end, constructor
 
@@ -174,39 +174,44 @@ class BTools:
     ################################################################
     def buildB(self, ldata, cthresh, B, I, J):
 	
+        print(self.myrank_, ": BTools::buildB: starting...")
+        sys.stdout.flush()
 
-        # Do thresholding in local covariance members:
-#       self.do_thresh(ldata, ldata, self.myrank_, cthresh, B, I, J) 
-        
-	# Gather all slabs here to perform thresholding:
+	    # Gather all slabs here to perform thresholding:
      
-#       print(self.myrank_, ": buildB: recvbuff=",self.recvbuff_)
-#       sys.stdout.flush()
+        print(self.myrank_, ": BTools::buildB: len(ldata)=", len(ldata), "len(recvbuff)=", len(self.recvbuff_))
+        sys.stdout.flush()
 
+        self.comm_.barrier()
         self.comm_.Allgather(ldata,self.recvbuff_)
+        self.comm_.barrier()
 
-        # Declare tmp data:
+        print(self.myrank_, ": BTools::buildB: Allgather done")
+        sys.stdout.flush()
 
+        # Multiply local data by all gathered data and threshold:
         for i in range(0, self.nprocs_):
-            print(self.myrank_, "BTools::buildB: doing partition ", i, "...")
-#           print(self.myrank_, "BTools::buildB: len(Bp)=",len(self.Bp_))
-            sys.stdout.flush()
+#           print(self.myrank_, ": BTools::buildB: doing partition ", i, "...")
+#           eys.stdout.flush()
             n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
-            print(self.myrank_, "BTools::buildB: partition threshold done.")
-            sys.stdout.flush()
+#           print(self.myrank_, ": BTools::buildB: partition threshold done.")
+#           sys.stdout.flush()
 
-#           print(self.myrank_, "buildB: Ip[",i,"]=", self.Ip_)
-#           print(self.myrank_, "buildB: Jp[",i,"]=", self.Jp_)
-#           print(self.myrank_, "buildB: Bp[",i,"]=", self.Bp_)
+#           print(self.myrank_, ": buildB: Ip[",i,"]=", self.Ip_)
+#           print(self.myrank_, ": buildB: Jp[",i,"]=", self.Jp_)
+#           print(self.myrank_, ": buildB: Bp[",i,"]=", self.Bp_)
+#           sys.stdout.flush()
 
             # Append new global indices to return arrays:
             B.extend(self.Bp_[0:n])
             I.extend(self.Ip_[0:n])
             J.extend(self.Jp_[0:n])
 
-#           print(self.myrank_, "buildB: len(l)[",i,"]=", len(ldata),\
+#           print(self.myrank_, ": buildB: len(l)[",i,"]=", len(ldata),\
 #                 " len(r)[",i,"]=",len(self.recvbuff_[i,:]))
-#           print(self.myrank_, "buildB: len(B)[",i,"]=", len(B))
+#           print(self.myrank_, ": buildB: len(B)[",i,"]=", len(B))
+        print(self.myrank_, ": BTools::buildB: partition thresholding done.")
+        sys.stdout.flush()
 
 
         return   # end, buildB method
@@ -300,8 +305,8 @@ class BTools:
            
               n += 1
 
-        print(self.myrank_, ": do_thresh: number found=",n, " len(B)=", len(B))
-        sys.stdout.flush()
+#       print(self.myrank_, ": do_thresh: number found=",n, " len(B)=", len(B))
+#       sys.stdout.flush()
 
         return n  # end, do_thresh method
 	

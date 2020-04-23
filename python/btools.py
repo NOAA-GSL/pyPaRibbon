@@ -237,9 +237,10 @@ class BTools:
         
         # Just in case, resize operand arrays if necessary:
         if len(ldata)*len(rdata) > len(self.Bp_):
-            self.Bp_.extend(len(ldata)*len(rdata) - len(self.Bp_) + 1)
-            self.Ip_.extend(len(ldata)*len(rdata) - len(self.Bp_) + 1)
-            self.Jp_.extend(len(ldata)*len(rdata) - len(self.Bp_) + 1)
+            x = Bp_[0]
+            self.Bp_ = [0.0]*(len(ldata)*len(rdata))
+            self.Ip_ = [0]  *(len(ldata)*len(rdata)) 
+            self.Jp_ = [0]  *(len(ldata)*len(rdata)) 
             
 
         imin = 1
@@ -280,14 +281,14 @@ class BTools:
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
-            if prod >= thresh:
+            if abs(prod) >= thresh:
      	      # Locate in global grid:
               ig   = int( (rnb+j)/(self.gn_[1]*self.gn_[2]) )
               itmp = ig*self.gn_[1]*self.gn_[2]
               jg   = int( (rnb+j-itmp)/self.gn_[1] )
               kg   =  rnb+j - itmp  - jg*self.gn_[1]
            
-	      # Compute global matrix indices: 	    
+	          # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
              
               B[n] = prod

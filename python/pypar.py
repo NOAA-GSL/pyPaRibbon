@@ -155,3 +155,12 @@ print ("len(B)=",len(B))
 print ("len(I)=",len(I))
 print ("len(J)=",len(J))
 
+lcount = len(B)                             # local number of entries
+gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
+print(myrank, ": main: max number entries  : ", (np.prod(gdims))**2)
+print(myrank, ": main: number entries found: ", gcount)
+
+# TODO: Collect (B,I,J) data from all tasks to task 0, 
+#       and plot full matrix, somehow. Compute 'ribbon
+#       width'?
+

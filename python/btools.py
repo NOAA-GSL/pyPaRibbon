@@ -3,6 +3,7 @@
 #  Desc  : Provides methods for handling pribbon matrix
 #          operations in parallel
 ################################################################
+from netCDF4 import Dataset
 from   mpi4py import MPI
 import numpy as np
 import array
@@ -57,6 +58,7 @@ class BTools:
         sys.stdout.flush()
 
         linsz = szbuff**2
+        print("BTools::__init__: linsz=",linsz)
         if   mpiftype == MPI.FLOAT:
             self.Bp_ = array.array('f' , (0.0,)*linsz)
         elif mpiftype == MPI.DOUBLE:
@@ -178,6 +180,8 @@ class BTools:
 	
         print(self.myrank_, ": BTools::buildB: starting...")
         sys.stdout.flush()
+
+        ldata.flatten()
 
 	    # Gather all slabs here to perform thresholding:
      
@@ -313,3 +317,114 @@ class BTools:
         return n  # end, do_thresh method
 	
 
+    ####################################################
+    #  Method: do_thresh
+    #  Desc  : Reads specified NetCDF4 file, and returns a slab of data
+    #          'owned' by specified MPI rank.
+    #  Args  : 
+    #          fileName    : string, filename of the netCDF file to open
+    #          ensembleName: string, name of the ensemble
+    #          itime       : integer, single time (for now,later can be ranges)
+    #          mpiTasks    : integer, number of MPI tasks (> 0)
+    #          mpiRank     : integer, rank of the calling process [0, mpiTasks-1] 
+    #                        (zero based)
+    #          means       : integer, 1,2,3 where:
+    #                         1: <T(x,y,x)> = Sum ens T(ens,x,y,z)/num ensembles
+    #                         2: T(ens,x,y,z) - <T(x,y,z)>
+    #                         3: < T(ens,x,y,z) - <T(x,y,z)> >
+    #                         4: raw (no subtracted mean)
+    #          decimate    : integer, shorten the slab by decimate (0 is no decimate).
+    #                        So, if you decimate by 4, you keep every 4th data point
+    # ReturnsL N: numpy array, data for a particular mpiRank of 
+    #             size (Nx_p, Ny, Nz), where Nx_p is are the number x-planes
+    #             corresponding to mpiRank.
+    #          gdims: dims of original grid
+    ################################################################
+    @staticmethod
+    def getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means, decimate):
+        # N = Btools_getSlabData(fileName, ensembleName, itime, mpiTask, mpiRank, means, decimate)
+        # N is a slab of data (x,y,z) 
+        #
+
+        #
+        # Check the inputs.
+        #
+        if mpiRank <0 or mpiRank>(mpiTasks-1):
+            sys.exit("Error, bad mpiRank in Btools_getSlabData!")
+
+        if (type(mpiRank) is not int):
+            sys.exit("Error, bad mpiRank type in Btools_getSlabData!")
+   
+        if (type(itime) is not int):
+            sys.exit("Error, bad itime type in Btools_getSlabData!")
+
+        if (type(fileName) is not str):
+            sys.exit("Error, bad fileName type in Btools_getSlabData!")
+
+        # 
+        # Open the netCDF file, what is read depends on means.
+        #
+#       nc=Dataset(fileName,'r+',parallel=True)
+        nc=Dataset(fileName,'r+')
+        N = nc.variables[ensembleName]
+        if len(N.shape) != 5:
+            sys.exit("Error, ensemble should have five dimensions!")
+        gdims = N.shape[2:5]
+
+        #
+        # Return the selected data.
+        #
+        #    1: <T(x,y,x)> = Sum ens T(ens,x,y,z)/num ensembles
+        #    2: T(ens,x,y,z) - <T(x,y,z)>
+        #    3: < T(ens,x,y,z) - <T(x,y,z)> >
+        #    4: raw (no subtracted mean)
+ 
+        if means == 1: # T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
+           N = nc.variables[ensembleName]
+           if len(N.shape) != 5:
+              sys.exit("Error, ensemble should have five dimensions!")
+           iensembles,ntimes,iz,iy,ix = N.shape
+           Nsum = np.zeros([1,iy,ix],dtype=np.float32)
+           for i in range(0,iensembles):
+              Nsum = Nsum + N[i,itime,1,:,:]
+           N = np.true_divide(Nsum,iensembles+1)
+           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           N = N[0,:,iLstart:iLend]
+        elif means == 2:  # Subtract the ensemble mean.
+           N = nc.variables[ensembleName]
+           if len(N.shape) != 5:
+              sys.exit("Error, ensemble should have five dimensions!")
+           iensembles,ntimes,iz,iy,ix = N.shape
+           mean = np.mean(N[0,0,0,:,:])
+           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           N = N[0,0,0,:,iLstart:iLend] - mean
+        elif means == 3:
+           N = nc.variables[ensembleName]
+           if len(N.shape) != 5:
+              sys.exit("Error, ensemble should have five dimensions!")
+           iensembles,ntimes,iz,iy,ix = N.shape
+           Nsum = np.zeros([1,iy,ix],dtype=np.float32)
+           for i in range(0,iensembles):
+              Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
+           N = np.true_divide(Nsum,iensembles)
+           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           N = N[0,:,iLstart:iLend]
+        elif means == 4:
+           N = nc.variables[ensembleName]
+           if len(N.shape) != 5:
+              sys.exit("Error, ensemble should have five dimensions!")
+           iensembles,ntimes,iz,iy,ix = N.shape
+           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           N = N[0,0,0,:,iLstart:iLend]
+        else:
+           sys.exit("Error, bad mean value!")
+ 
+        if decimate != 0:
+           print ("N shape=",N.shape)
+           N = N[::decimate,iLstart:iLend:decimate]
+ 
+
+        nc.close
+        print ("N shape =", N.shape)
+
+        return N,gdims

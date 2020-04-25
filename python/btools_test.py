@@ -1,64 +1,56 @@
 import os, sys
-from mpi4py import MPI
-from numpy import *
 import numpy as np
-from numpy import sum
-import math
-from random import seed
-from random import random
-import array
+from mpi4py import MPI
+from netCDF4 import Dataset
 import btools
 
+#
+# Main Program.
+#
 
 # Get world size and rank:
-comm   = MPI.COMM_WORLD
-myrank = comm.Get_rank()
-nprocs = comm.Get_size()
-print("main: nprocs=",nprocs, " rank=", myrank)
+comm     = MPI.COMM_WORLD
+mpiTasks = MPI.COMM_WORLD.Get_size()
+mpiRank  = MPI.COMM_WORLD.Get_rank()
+name     = MPI.Get_processor_name()
 
-# Create some (Fortran-ordered) test data:
-ldims  = ([2,2*nprocs,1]);
-gdims  = ([2*nprocs,ldims[1],1])
-
-ldata1 = np.ndarray(ldims,dtype=float,order='F') 
-print(myrank, ": main: ldims", ldims)
-print(myrank, ": main: gdims", gdims)
+print("main: tasks=",mpiTasks, " rank=", mpiRank,"machine name=",name)
 sys.stdout.flush()
 
-seed(10000);
-for k in range(0,ldims[2]): 
-  for j in range(0,ldims[1]): 
-    for i in range(0,ldims[0]): 
-      istart = myrank*np.prod(ldims)
-      ldata1[i,j,k] = istart + i + j*ldims[1] + k*ldims[0]*ldims[1] + 10*myrank
-#     ldata1[i,j,k] = 1.1*random()
-#     print("ldata1=",ldata1[i,j,k])
+#
+# Get the local data.
+#
+N,gdims = btools.BTools.getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 3, 2)
 
-
-ldata1 = ldata1.flatten()
-
-print(myrank, ": main: ldata1", ldata1)
+#
+# Substantiate the BTools class before building B:
+#
+#gdims = np.array([199,125,1])
+print ("main: constructing BTools, gdims=",gdims)
 sys.stdout.flush()
-BTOOLS = btools.BTools(comm, MPI.FLOAT, gdims)
+BTools = btools.BTools(comm, MPI.FLOAT, gdims)
 
-B = []
-J = array.array('i')
-I = array.array('i')
-threshold = -1.0
 
-print(myrank, ": main: calling buildB...")
+#
+# Build the distributed B matrix.
+#
+B          = []
+I          = []
+J          = []
+threshhold = 0.8
+print (mpiRank,": main: calling BTools.buildB...")
 sys.stdout.flush()
-BTOOLS.buildB(ldata1, threshold, B, I, J)
+BTools.buildB(N, threshhold, B, I, J) 
+  
+print (mpiRank, ": len(B)=",len(B))
+print (mpiRank, ": len(I)=",len(I))
+print (mpiRank, ": len(J)=",len(J))
 
-
-#print(myrank, ": main: I=", I)
-#print(myrank, ": main: J=", J)
-#print(myrank, ": main: B=", B)
-
-lnumber = len(B)                               # local number of entries
-gnumber = comm.allreduce(lnumber, op=MPI.SUM) # global number of entries
-print(myrank, ": main: max number entries  : ", (np.prod(gdims))**2)
-print(myrank, ": main: number entries found: ", gnumber)
+lcount = len(B)                             # local number of entries
+comm.barrier()
+gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
+print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
+print(mpiRank, ": main: number entries found: ", gcount)
 
 # TODO: Collect (B,I,J) data from all tasks to task 0, 
 #       and plot full matrix, somehow. Compute 'ribbon

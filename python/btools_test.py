@@ -27,6 +27,7 @@ N,gdims = btools.BTools.getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 3, 
 #
 #gdims = np.array([199,125,1])
 print ("main: constructing BTools, gdims=",gdims)
+print ("main: constructing BTools, N.shape=",N.shape)
 sys.stdout.flush()
 BTools = btools.BTools(comm, MPI.FLOAT, gdims)
 

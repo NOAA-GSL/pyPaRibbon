@@ -18,7 +18,7 @@ class BTools:
     #  Desc  : Constructor
     #  Args  : comm    (in): communicator
     #          mpiftype(in): MPI float type of data 
-    #          gn      (in): 1d array of global data sizes
+    #          gn      (in): 1d array of global data sizes: (Nz, Ny, Nz)
     # Returns: none
     ################################################################
     def __init__(self, comm, mpiftype, gn):
@@ -38,27 +38,25 @@ class BTools:
         # Create recv buffs for this task:
         nxmax = 0
         for i in range(0,self.nprocs_):
-            (ib, ie) = BTools.range(1, self.gn_[0], self.nprocs_, i)
+            (ib, ie) = BTools.range(1, self.gn_[2], self.nprocs_, i)
             nxmax = max(nxmax, ie-ib+1)
 
-        szbuff = gn[1]*gn[2]*nxmax 
+        szbuff = nxmax*gn[0]*gn[1]
         print(self.myrank_, ": __init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
         sys.stdout.flush()
-        self.buffdims_ = ([self.comm_.Get_size(), szbuff])
+        buffdims = ([self.comm_.Get_size(), szbuff])
         if   mpiftype == MPI.FLOAT:
-            self.recvbuff_ = np.ndarray(self.buffdims_, dtype='f')
+            self.recvbuff_ = np.ndarray(buffdims, dtype='f')
         elif mpiftype == MPI.DOUBLE:
-            self.recvbuff_ = np.ndarray(self.buffdims_, dtype='d')
+            self.recvbuff_ = np.ndarray(buffdims, dtype='d')
         else:
             assert 0, "Input type must be float or double"
         
         self.recvbuff_.fill(self.myrank_)
 
-        print("BTools::__init__: type(recvbuff)=", type(self.recvbuff_.dtype.type))
-        sys.stdout.flush()
-
         linsz = szbuff**2
         print("BTools::__init__: linsz=",linsz)
+        sys.stdout.flush()
         if   mpiftype == MPI.FLOAT:
             self.Bp_ = array.array('f' , (0.0,)*linsz)
         elif mpiftype == MPI.DOUBLE:
@@ -148,9 +146,9 @@ class BTools:
         imin = 1
         jmin = 1
         kmin = 1
-        imax = self.gn_[0]
+        imax = self.gn_[2]
         jmax = self.gn_[1]
-        kmax = self.gn_[2]
+        kmax = self.gn_[0]
 
    	#  Create send & receive MPI types:
         (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
@@ -185,7 +183,7 @@ class BTools:
 
 	    # Gather all slabs here to perform thresholding:
      
-        print(self.myrank_, ": BTools::buildB: len(ldata)=", len(ldata), "len(recvbuff)=", self.recvbuff_.shape)
+        print(self.myrank_, ": BTools::buildB: shape(ldata)=", ldata.shape, "shape(recvbuff)=", self.recvbuff_.shape)
         sys.stdout.flush()
 
         self.comm_.barrier()
@@ -260,9 +258,9 @@ class BTools:
         imin = 1
         jmin = 1
         kmin = 1
-        imax = self.gn_[0]
+        imax = self.gn_[2]
         jmax = self.gn_[1]
-        kmax = self.gn_[2]
+        kmax = self.gn_[0]
 
         # Find global starting index of local block:
         (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
@@ -282,28 +280,28 @@ class BTools:
         n = 0
         for i in range(0, len(ldata)):
      	  # Locate in global grid:
-          ig   = int( (lnb+i)/(self.gn_[1]*self.gn_[2]) )
-          itmp = ig*self.gn_[1]*self.gn_[2]
-          jg   = int( (lnb+i-itmp)/self.gn_[1] )
-          kg   =  lnb+i - itmp  - jg*self.gn_[1]
+          ig   = int( (lnb+i)/(self.gn_[0]*self.gn_[1]) )
+          itmp = ig*self.gn_[0]*self.gn_[1]
+          jg   = int( (lnb+i-itmp)/self.gn_[0] )
+          kg   =  lnb+i - itmp  - jg*self.gn_[0]
 
 #         print("i=",i," ig=",ig," jg=",jg,"kg=",kg)
 
 	      # Compute global matrix index: 	    
-          Ig = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
+          Ig = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
 #         print("Ig=",Ig)
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
             if abs(prod) >= thresh:
      	      # Locate in global grid:
-              ig   = int( (rnb+j)/(self.gn_[1]*self.gn_[2]) )
-              itmp = ig*self.gn_[1]*self.gn_[2]
-              jg   = int( (rnb+j-itmp)/self.gn_[1] )
-              kg   =  rnb+j - itmp  - jg*self.gn_[1]
+              ig   = int( (rnb+j)/(self.gn_[0]*self.gn_[1]) )
+              itmp = ig*self.gn_[0]*self.gn_[1]
+              jg   = int( (rnb+j-itmp)/self.gn_[0] )
+              kg   =  rnb+j - itmp  - jg*self.gn_[0]
            
 	          # Compute global matrix indices: 	    
-              Jg = kg + jg*self.gn_[1] + ig*self.gn_[1]*self.gn_[2]
+              Jg = kg + jg*self.gn_[1] + ig*self.gn_[0]*self.gn_[1]
              
               B[n] = prod
               I[n] = int(Ig)
@@ -389,6 +387,7 @@ class BTools:
               Nsum = Nsum + N[i,itime,1,:,:]
            N = np.true_divide(Nsum,iensembles+1)
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           gdims = N.shape
            N = N[0,:,iLstart:iLend]
         elif means == 2:  # Subtract the ensemble mean.
            N = nc.variables[ensembleName]
@@ -396,7 +395,9 @@ class BTools:
               sys.exit("Error, ensemble should have five dimensions!")
            iensembles,ntimes,iz,iy,ix = N.shape
            mean = np.mean(N[0,0,0,:,:])
+           gdims = mean.shape
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           gdims = mean.shape
            N = N[0,0,0,:,iLstart:iLend] - mean
         elif means == 3:
            N = nc.variables[ensembleName]
@@ -408,6 +409,7 @@ class BTools:
               Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
            N = np.true_divide(Nsum,iensembles)
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           gdims = N.shape
            N = N[0,:,iLstart:iLend]
         elif means == 4:
            N = nc.variables[ensembleName]
@@ -415,6 +417,7 @@ class BTools:
               sys.exit("Error, ensemble should have five dimensions!")
            iensembles,ntimes,iz,iy,ix = N.shape
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           gdims = N.shape
            N = N[0,0,0,:,iLstart:iLend]
         else:
            sys.exit("Error, bad mean value!")

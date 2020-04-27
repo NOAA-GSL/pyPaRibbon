@@ -179,7 +179,7 @@ class BTools:
         print(self.myrank_, ": BTools::buildB: starting...")
         sys.stdout.flush()
 
-        ldata.flatten()
+#       ldata.flatten()
 
 	    # Gather all slabs here to perform thresholding:
      
@@ -397,7 +397,6 @@ class BTools:
            mean = np.mean(N[0,0,0,:,:])
            gdims = mean.shape
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           gdims = mean.shape
            N = N[0,0,0,:,iLstart:iLend] - mean
         elif means == 3:
            N = nc.variables[ensembleName]
@@ -408,8 +407,8 @@ class BTools:
            for i in range(0,iensembles):
               Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
            N = np.true_divide(Nsum,iensembles)
-           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
            gdims = N.shape
+           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
            N = N[0,:,iLstart:iLend]
         elif means == 4:
            N = nc.variables[ensembleName]
@@ -417,18 +416,22 @@ class BTools:
               sys.exit("Error, ensemble should have five dimensions!")
            iensembles,ntimes,iz,iy,ix = N.shape
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           gdims = N.shape
            N = N[0,0,0,:,iLstart:iLend]
+           gdims = ([1,iy,ix])
         else:
            sys.exit("Error, bad mean value!")
  
         if decimate != 0:
-           print ("N shape=",N.shape)
+           print (mpiRank,": getSlabData: N shape=",N.shape)
+           sys.stdout.flush()
            N = N[::decimate,::decimate]
-           gdims = N.shape
+           gdims = ([gdims[0],gdims[1], gdims[2]/decimate+1])
  
 
         nc.close
-        print ("N shape =", N.shape)
+        print (mpiRank,": getSlabData: N shape_final=",N.shape)
+        sys.stdout.flush()
+        if len(gdims) == 2:
+          gdims = ([1, gdims[0], gdims[1]])
 
         return N, gdims

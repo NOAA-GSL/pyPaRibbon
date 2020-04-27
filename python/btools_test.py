@@ -20,7 +20,7 @@ sys.stdout.flush()
 #
 # Get the local data.
 #
-N,gdims = btools.BTools.getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 3, 2)
+(N,gdims) = btools.BTools.getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 3, 2)
 
 #
 # Substantiate the BTools class before building B:
@@ -41,7 +41,10 @@ J          = []
 threshhold = 0.8
 print (mpiRank,": main: calling BTools.buildB...")
 sys.stdout.flush()
-BTools.buildB(N, threshhold, B, I, J) 
+N = np.asarray(N, order='C')
+N.clear()
+x=N.flatten()
+BTools.buildB(x, threshhold, B, I, J) 
   
 print (mpiRank, ": len(B)=",len(B))
 print (mpiRank, ": len(I)=",len(I))

@@ -175,7 +175,9 @@ class BTools:
     # Returns: none
     ################################################################
     def buildB(self, ldata, cthresh, B, I, J):
-	
+
+        print (ldata.shape)
+        ldata.flatten()	
         print(self.myrank_, ": BTools::buildB: starting...")
         sys.stdout.flush()
 
@@ -336,7 +338,6 @@ class BTools:
     # ReturnsL N: numpy array, data for a particular mpiRank of 
     #             size (Nx_p, Ny, Nz), where Nx_p is are the number x-planes
     #             corresponding to mpiRank.
-    #          gdims: dims of original grid
     ################################################################
     @staticmethod
     def getSlabData(fileName, ensembleName, itime, mpiTasks, mpiRank, means, decimate):
@@ -362,12 +363,10 @@ class BTools:
         # 
         # Open the netCDF file, what is read depends on means.
         #
-#       nc=Dataset(fileName,'r+',parallel=True)
         nc=Dataset(fileName,'r+')
         N = nc.variables[ensembleName]
         if len(N.shape) != 5:
             sys.exit("Error, ensemble should have five dimensions!")
-        gdims = N.shape[2:5]
 
         #
         # Return the selected data.
@@ -387,7 +386,6 @@ class BTools:
               Nsum = Nsum + N[i,itime,1,:,:]
            N = np.true_divide(Nsum,iensembles+1)
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           gdims = N.shape
            N = N[0,:,iLstart:iLend]
         elif means == 2:  # Subtract the ensemble mean.
            N = nc.variables[ensembleName]
@@ -395,9 +393,7 @@ class BTools:
               sys.exit("Error, ensemble should have five dimensions!")
            iensembles,ntimes,iz,iy,ix = N.shape
            mean = np.mean(N[0,0,0,:,:])
-           gdims = mean.shape
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           gdims = mean.shape
            N = N[0,0,0,:,iLstart:iLend] - mean
         elif means == 3:
            N = nc.variables[ensembleName]
@@ -409,7 +405,6 @@ class BTools:
               Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
            N = np.true_divide(Nsum,iensembles)
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           gdims = N.shape
            N = N[0,:,iLstart:iLend]
         elif means == 4:
            N = nc.variables[ensembleName]
@@ -417,17 +412,16 @@ class BTools:
               sys.exit("Error, ensemble should have five dimensions!")
            iensembles,ntimes,iz,iy,ix = N.shape
            iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           gdims = N.shape
            N = N[0,0,0,:,iLstart:iLend]
         else:
            sys.exit("Error, bad mean value!")
  
         if decimate != 0:
            print ("N shape=",N.shape)
-           N = N[::decimate,iLstart:iLend:decimate]
+           N = N[::decimate,::decimate]
  
 
         nc.close
         print ("N shape =", N.shape)
 
-        return N,gdims
+        return N

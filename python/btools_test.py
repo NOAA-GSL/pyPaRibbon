@@ -42,8 +42,9 @@ threshhold = 0.8
 print (mpiRank,": main: calling BTools.buildB...")
 sys.stdout.flush()
 N = np.asarray(N, order='C')
-x=N.flatten()
+x = N.flatten()
 N = []
+
 BTools.buildB(x, threshhold, B, I, J) 
   
 print (mpiRank, ": len(B)=",len(B))

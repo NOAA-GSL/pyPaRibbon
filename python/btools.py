@@ -433,5 +433,6 @@ class BTools:
         sys.stdout.flush()
         if len(gdims) == 2:
           gdims = ([1, gdims[0], gdims[1]])
+        gdims = ([int(gdims[0]),int(gdims[1]),int(gdims[2]) ])
 
         return N, gdims

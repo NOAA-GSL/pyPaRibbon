@@ -316,7 +316,7 @@ class BTools:
 	
 
     ####################################################
-    #  Method: do_thresh
+    #  Method: getSlabData
     #  Desc  : Reads specified NetCDF4 file, and returns a slab of data
     #          'owned' by specified MPI rank.
     #  Args  : 

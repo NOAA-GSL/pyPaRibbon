@@ -3,7 +3,7 @@
 #  Desc  : Provides methods for handling pribbon matrix
 #          operations in parallel
 ################################################################
-from netCDF4 import Dataset
+#from netCDF4 import Dataset
 from   mpi4py import MPI
 import numpy as np
 import array
@@ -183,12 +183,14 @@ class BTools:
 
 	    # Gather all slabs here to perform thresholding:
      
-        print(self.myrank_, ": BTools::buildB: shape(ldata)=", ldata.shape, "shape(recvbuff)=", self.recvbuff_.shape)
+        print(self.myrank_, ": BTools::buildB: shape(ldata)=", ldata.shape, "shape(recvbuff)=", self.recvbuff_.shape, " ldata.dtype=", ldata.dtype)
         sys.stdout.flush()
 
         self.comm_.barrier()
         self.comm_.Allgather(ldata,self.recvbuff_)
         self.comm_.barrier()
+
+#       self.recvbuff_[self.myrank_,:] = ldata
 
         print(self.myrank_, ": BTools::buildB: Allgather done")
         sys.stdout.flush()
@@ -198,8 +200,9 @@ class BTools:
 #           print(self.myrank_, ": BTools::buildB: doing partition ", i, "...")
 #           eys.stdout.flush()
             n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
-#           print(self.myrank_, ": BTools::buildB: partition threshold done.")
-#           sys.stdout.flush()
+      
+            print(self.myrank_, ": BTools::buildB: recvbuff[",i,"]=",self.recvbuff_[i,:])
+            sys.stdout.flush()
 
 #           print(self.myrank_, ": buildB: Ip[",i,"]=", self.Ip_)
 #           print(self.myrank_, ": buildB: Jp[",i,"]=", self.Jp_)
@@ -274,7 +277,7 @@ class BTools:
 
         
     	# Order s.t. we multiply
-	    #    Transpose(ldata) X rdata:
+	#    Transpose(ldata) X rdata:
         # wherer Trarnspose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
         n = 0
@@ -283,13 +286,13 @@ class BTools:
           ig   = int( (lnb+i)/(self.gn_[0]*self.gn_[1]) )
           itmp = ig*self.gn_[0]*self.gn_[1]
           jg   = int( (lnb+i-itmp)/self.gn_[0] )
-          kg   =  lnb+i - itmp  - jg*self.gn_[0]
+          kg   = lnb + i - itmp  - jg*self.gn_[0]
 
-#         print("i=",i," ig=",ig," jg=",jg,"kg=",kg)
-
-	      # Compute global matrix index: 	    
+	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
-#         print("Ig=",Ig)
+
+          print("i=",i," lnb=", lnb, " ig=",ig," jg=",jg,"kg=",kg,": Ig=", Ig)
+          sys.stdout.flush()
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
@@ -298,10 +301,13 @@ class BTools:
               ig   = int( (rnb+j)/(self.gn_[0]*self.gn_[1]) )
               itmp = ig*self.gn_[0]*self.gn_[1]
               jg   = int( (rnb+j-itmp)/self.gn_[0] )
-              kg   =  rnb+j - itmp  - jg*self.gn_[0]
+              kg   = rnb + j - itmp  - jg*self.gn_[0]
            
-	          # Compute global matrix indices: 	    
-              Jg = kg + jg*self.gn_[1] + ig*self.gn_[0]*self.gn_[1]
+	      # Compute global matrix indices: 	    
+              Jg = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+
+#             print("j=",j," rnb=", rnb, " ig=",ig," jg=",jg,"kg=",kg, ": Ig, Jg=", Ig, Jg)
+              sys.stdout.flush()
              
               B[n] = prod
               I[n] = int(Ig)

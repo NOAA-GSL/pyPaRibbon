@@ -193,6 +193,7 @@ class BTools:
 #       self.recvbuff_[self.myrank_,:] = ldata
 
         print(self.myrank_, ": BTools::buildB: Allgather done")
+        print(self.myrank_, ": BTools::buildB: recvbuff=", self.recvbuff_)
         sys.stdout.flush()
 
         # Multiply local data by all gathered data and threshold:
@@ -283,35 +284,35 @@ class BTools:
         n = 0
         for i in range(0, len(ldata)):
      	  # Locate in global grid:
-          ig   = int( (lnb+i)/(self.gn_[0]*self.gn_[1]) )
+          ig   = int( float(lnb+i)/float(self.gn_[0]*self.gn_[1]) )
           itmp = ig*self.gn_[0]*self.gn_[1]
-          jg   = int( (lnb+i-itmp)/self.gn_[0] )
+          jg   = int( float(lnb+i-itmp)/float(self.gn_[0]) )
           kg   = lnb + i - itmp  - jg*self.gn_[0]
 
 	  # Compute global matrix index: 	    
           Ig = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
 
-          print("i=",i," lnb=", lnb, " ig=",ig," jg=",jg,"kg=",kg,": Ig=", Ig)
-          sys.stdout.flush()
+        # print("i=",i," lnb=", lnb, " ig=",ig," jg=",jg,"kg=",kg,": Ig=", Ig)
+        # sys.stdout.flush()
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
             if abs(prod) >= thresh:
      	      # Locate in global grid:
-              ig   = int( (rnb+j)/(self.gn_[0]*self.gn_[1]) )
+              ig   = int( float(rnb+j)/float(self.gn_[0]*self.gn_[1]) )
               itmp = ig*self.gn_[0]*self.gn_[1]
-              jg   = int( (rnb+j-itmp)/self.gn_[0] )
+              jg   = int( float(rnb+j-itmp)/float(self.gn_[0]) )
               kg   = rnb + j - itmp  - jg*self.gn_[0]
            
 	      # Compute global matrix indices: 	    
               Jg = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
 
-#             print("j=",j," rnb=", rnb, " ig=",ig," jg=",jg,"kg=",kg, ": Ig, Jg=", Ig, Jg)
-              sys.stdout.flush()
+        #     print("j=",j," rnb=", rnb, " ig=",ig," jg=",jg,"kg=",kg, ": Ig, Jg=", Ig, Jg)
+        #     sys.stdout.flush()
              
               B[n] = prod
-              I[n] = int(Ig)
-              J[n] = int(Jg)
+              I[n] = int(Ig+0.5)
+              J[n] = int(Jg+0.5)
            
               n += 1
 

@@ -1,7 +1,6 @@
 import os, sys
 import numpy as np
 from mpi4py import MPI
-from netCDF4 import Dataset
 import btools
 
 #
@@ -23,34 +22,54 @@ sys.stdout.flush()
 #(N,gdims) = btools.BTools.getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 3, 2)
 
 #
-# Instantiate the BTools class before building B:
 #
 #print ("main: constructing BTools, gdims=",gdims)
 #print ("main: constructing BTools, N.shape=",N.shape)
 #sys.stdout.flush()
 
-BTools = btools.BTools(comm, MPI.FLOAT, gdims)
+#
+# Set default local data grid size:
+NLx = 2
+NLy = 2
+NLz = 1
 
-# Create some (Fortran-ordered) test data:
-ldims  = ([1,2*mpiTasks,2]);
-gdims  = ([1, 2, 2*mpiTasks])
-Nloc = np.ndarray(ldims,dtype=float,order='C')
-Nglo = np.ndarray(gdims,dtype=float,order='C')
+# Create some (Fortran-ordered) test data in order:
+# [Nz, Ny, Nz]:
+ldims  = ([NLz,NLy, NLx]);         # local dims
+gdims  = ([1, NLy, NLx*mpiTasks])  # global dims
+Nloc = np.ndarray(ldims,dtype='f',order='C') # local data
+Nglo = np.ndarray(gdims,dtype='f',order='C') # global data
+
 print("main: ldims", ldims)
 print("main: gdims", gdims)
+sys.stdout.flush()
 
-# Local vector:
-istart = myrank*np.prod(ldims)
-for k in range(0,ldims[0]):
-  for j in range(0,ldims[1]):
-    for i in range(0,ldims[2]):
-      Nloc[i,j,k] = istart + i + j*ldims[1] + k*ldims[0]*ldims[1]
+
 #
-# Global vector:
+# Instantiate the BTools class before building B:
+#
+BTools = btools.BTools(comm, MPI.FLOAT, gdims)
+
+# Global data:
 for k in range(0,gdims[0]):
   for j in range(0,gdims[1]):
     for i in range(0,gdims[2]):
-      Nglo[i,j,k] = i + j*gdims[1] + k*gdims[0]*gdims[1]
+      Nglo[k,j,i] = float(k + j*gdims[0] + i*gdims[0]*gdims[1])
+
+# Local data (taken from global data):
+(ib, ie) = btools.BTools.range(1, gdims[2], mpiTasks, mpiRank)
+print (mpiRank,": main: ib=", ib, " ie=", ie)
+sys.stdout.flush()
+for k in range(0,ldims[0]):
+  for j in range(0,ldims[1]):
+    for i in range(0,ie-ib+1):
+      Nloc[k,j,i] = Nglo[k,j,i+ib-1]
+#
+
+print (mpiRank,": main: Nloc=", Nloc)
+print (mpiRank,": main: Nglo=", Nglo)
+sys.stdout.flush()
+
 #
 #
 # Build the distributed B matrix.
@@ -58,26 +77,28 @@ for k in range(0,gdims[0]):
 B          = []
 I          = []
 J          = []
-threshhold = 0.0
+threshold = 0.0
 print (mpiRank,": main: calling BTools.buildB...")
 sys.stdout.flush()
-Nloc = np.asarray(Nloc, order='C')
+
 x = Nloc.flatten()
 Nloc = []
 
-BTools.buildB(x, threshhold, B, I, J) 
+BTools.buildB(x, threshold, B, I, J) 
+print (mpiRank, ": I=",I)
+print (mpiRank, ": J=",J)
   
 #print (mpiRank, ": len(B)=",len(B))
 #print (mpiRank, ": len(I)=",len(I))
 #print (mpiRank, ": len(J)=",len(J))
 
-#lcount = len(B)                             # local number of entries
-#comm.barrier()
-#gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
+lcount = len(B)                             # local number of entries
+comm.barrier()
+gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
 
-#if mpiRank == 0:
-#    print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
-#    print(mpiRank, ": main: number entries found: ", gcount)
+if mpiRank == 0:
+    print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
+    print(mpiRank, ": main: number entries found: ", gcount)
 
 # TODO: Collect (B,I,J) data from all tasks to task 0, 
 #       and plot full matrix, somehow. Compute 'ribbon
@@ -87,15 +108,22 @@ BTools.buildB(x, threshhold, B, I, J)
 C = np.tensordot(Nglo.flatten(), Nglo.flatten(), 0)
 C[abs(C) < threshold] = 0.
 
+print(mpiRank, ": main: C= ", C.flatten())
+print(mpiRank, ": main: B= ", B)
 
+
+
+#
+# Collect B-matrix entries that are
+# wrong:
 nbad = 0
-for i in range(0,len(I)):
+for i in range(0,len(B)):
     diff = C[I[i],J[i]] - B[i]
     if diff != 0:
         nbad += 1
         print("I=",J[i], " J=",J[i], " diff=", diff)
 
 if nbad > 0:
-  print("main: do_threshold FAILED")
+  print("main: buildB FAILED: nbad=",nbad)
 else:
   print("main: SUCCESS!")

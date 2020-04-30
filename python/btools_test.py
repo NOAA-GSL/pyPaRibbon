@@ -29,7 +29,7 @@ sys.stdout.flush()
 
 #
 # Set default local data grid size:
-NLx = 2
+NLx = 1
 NLy = 2
 NLz = 1
 
@@ -77,7 +77,7 @@ sys.stdout.flush()
 B          = []
 I          = []
 J          = []
-threshold = 0.0
+threshold = -1.0
 print (mpiRank,": main: calling BTools.buildB...")
 sys.stdout.flush()
 
@@ -108,6 +108,7 @@ if mpiRank == 0:
 C = np.tensordot(Nglo.flatten(), Nglo.flatten(), 0)
 C[abs(C) < threshold] = 0.
 
+print(mpiRank, ": main: C_mat= ", C)
 print(mpiRank, ": main: C= ", C.flatten())
 print(mpiRank, ": main: B= ", B)
 
@@ -119,9 +120,9 @@ print(mpiRank, ": main: B= ", B)
 nbad = 0
 for i in range(0,len(B)):
     diff = C[I[i],J[i]] - B[i]
-    if diff != 0:
+    if abs(diff) > 0:
         nbad += 1
-        print("I=",J[i], " J=",J[i], " diff=", diff)
+        print(mpiRank, ": I=",I[i], " J=",J[i], " C=", C[I[i],J[i]], " B=", B[i],  " diff=", diff)
 
 if nbad > 0:
   print("main: buildB FAILED: nbad=",nbad)

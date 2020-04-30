@@ -193,22 +193,19 @@ class BTools:
 #       self.recvbuff_[self.myrank_,:] = ldata
 
         print(self.myrank_, ": BTools::buildB: Allgather done")
-        print(self.myrank_, ": BTools::buildB: recvbuff=", self.recvbuff_)
         sys.stdout.flush()
 
         # Multiply local data by all gathered data and threshold:
         for i in range(0, self.nprocs_):
-#           print(self.myrank_, ": BTools::buildB: doing partition ", i, "...")
-#           eys.stdout.flush()
+
             n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
       
+            print(self.myrank_, ": BTools::buildB: local factor=", ldata)
             print(self.myrank_, ": BTools::buildB: recvbuff[",i,"]=",self.recvbuff_[i,:])
+            print(self.myrank_, ": BTools::buildB: I_loc[",i,"]=",self.Ip_)
+            print(self.myrank_, ": BTools::buildB: J_loc[",i,"]=",self.Jp_)
+            print(self.myrank_, ": BTools::buildB: B_loc[",i,"]=",self.Bp_)
             sys.stdout.flush()
-
-#           print(self.myrank_, ": buildB: Ip[",i,"]=", self.Ip_)
-#           print(self.myrank_, ": buildB: Jp[",i,"]=", self.Jp_)
-#           print(self.myrank_, ": buildB: Bp[",i,"]=", self.Bp_)
-#           sys.stdout.flush()
 
             # Append new global indices to return arrays:
             B.extend(self.Bp_[0:n])
@@ -284,35 +281,40 @@ class BTools:
         n = 0
         for i in range(0, len(ldata)):
      	  # Locate in global grid:
-          ig   = int( float(lnb+i)/float(self.gn_[0]*self.gn_[1]) )
-          itmp = ig*self.gn_[0]*self.gn_[1]
-          jg   = int( float(lnb+i-itmp)/float(self.gn_[0]) )
-          kg   = lnb + i - itmp  - jg*self.gn_[0]
+          ig    = int( float(lnb+i)/float(self.gn_[0]*self.gn_[1]) )
+          ntmp  = ig*self.gn_[0]*self.gn_[1]
+          jg    = int( float(lnb+i-ntmp)/float(self.gn_[0]) )
+          kg    = lnb + i - jg*self.gn_[0] - ntmp
 
 	  # Compute global matrix index: 	    
-          Ig = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+#         Ig    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+          Ig    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
 
-        # print("i=",i," lnb=", lnb, " ig=",ig," jg=",jg,"kg=",kg,": Ig=", Ig)
-        # sys.stdout.flush()
+        # if self.myrank_ == 0:
+#         print(self.myrank_,": i=",i," lnb=", lnb, " ig=",ig," jg=",jg,"kg=",kg,": Ig=", Ig)
+#         sys.stdout.flush()
+
           for j in range(0, len(rdata)):
             prod = ldata[i] * rdata[j]
             
             if abs(prod) >= thresh:
      	      # Locate in global grid:
-              ig   = int( float(rnb+j)/float(self.gn_[0]*self.gn_[1]) )
-              itmp = ig*self.gn_[0]*self.gn_[1]
-              jg   = int( float(rnb+j-itmp)/float(self.gn_[0]) )
-              kg   = rnb + j - itmp  - jg*self.gn_[0]
+              ig    = int( float(rnb+j)/float(self.gn_[0]*self.gn_[1]) )
+              ntmp  = ig*self.gn_[0]*self.gn_[1]
+              jg    = int( float(rnb+j-ntmp)/float(self.gn_[0]) )
+              kg    = rnb + j - jg*self.gn_[0] - ntmp
            
 	      # Compute global matrix indices: 	    
-              Jg = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+#             Jg    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+              Jg    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
 
-        #     print("j=",j," rnb=", rnb, " ig=",ig," jg=",jg,"kg=",kg, ": Ig, Jg=", Ig, Jg)
-        #     sys.stdout.flush()
+        #     if self.myrank_ == 0:
+#             print(self.myrank_, ": j=",j," rnb=", rnb, " ig=",ig," jg=",jg,"kg=",kg, ": Ig, Jg=", Ig, Jg)
+#             sys.stdout.flush()
              
               B[n] = prod
-              I[n] = int(Ig+0.5)
-              J[n] = int(Jg+0.5)
+              I[n] = int(Ig)
+              J[n] = int(Jg)
            
               n += 1
 

@@ -19,9 +19,10 @@ class BTools:
     #  Args  : comm    (in): communicator
     #          mpiftype(in): MPI float type of data 
     #          gn      (in): 1d array of global data sizes: (Nz, Ny, Nz)
+    #          debug   (in): print debug info (1); else don't (0)
     # Returns: none
     ################################################################
-    def __init__(self, comm, mpiftype, gn):
+    def __init__(self, comm, mpiftype, gn, debug):
 
         # Class member data:
         self.comm_     = comm
@@ -33,7 +34,8 @@ class BTools:
         self.recv_type_ = []
         assert len(gn)==3, "Invalid dimension spec"
         self.gn_ = gn
-        self.binit_ = 0
+
+        self.debug_ = debug
 
         # Create recv buffs for this task:
         nxmax = 0
@@ -42,8 +44,10 @@ class BTools:
             nxmax = max(nxmax, ie-ib+1)
 
         szbuff = nxmax*gn[0]*gn[1]
-        print(self.myrank_, ": __init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
-        sys.stdout.flush()
+
+        if self.debug_:
+          print(self.myrank_, ": __init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
+          sys.stdout.flush()
         buffdims = ([self.comm_.Get_size(), szbuff])
         if   mpiftype == MPI.FLOAT:
             self.recvbuff_ = np.ndarray(buffdims, dtype='f')
@@ -55,8 +59,10 @@ class BTools:
         self.recvbuff_.fill(self.myrank_)
 
         linsz = szbuff**2
-        print("BTools::__init__: linsz=",linsz)
-        sys.stdout.flush()
+
+        if self.debug_:
+          print("BTools::__init__: linsz=",linsz)
+          sys.stdout.flush()
         if   mpiftype == MPI.FLOAT:
             self.Bp_ = array.array('f' , (0.0,)*linsz)
         elif mpiftype == MPI.DOUBLE:
@@ -65,9 +71,6 @@ class BTools:
             assert 0, "Input type must be float or double"
         self.Ip_ = array.array('i', (0,)*linsz)
         self.Jp_ = array.array('i', (0,)*linsz)
-
-#       print(self.myrank_,": __init__: len(Bp)==",len(self.Bp_))
-#       sys.stdout.flush()
 
 	# end, constructor
 
@@ -136,35 +139,6 @@ class BTools:
 	
 
     ################################################################
-    #  Method: init
-    #  Desc  : Create MPI data types, misc data  
-    #  Args  : 
-    # Returns: none
-    ################################################################
-    def init(self):
-	
-        imin = 1
-        jmin = 1
-        kmin = 1
-        imax = self.gn_[2]
-        jmax = self.gn_[1]
-        kmax = self.gn_[0]
-
-   	#  Create send & receive MPI types:
-        (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
-        self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
-                        ib, ie, itype, send_type_)
-        for i in range(0, self.nprocs_-1):
-          (ib, ie) = self.range(imin, imax, self.nprocs_, i)
-          self.trans_type(imin, imax, jmin, jmax, kmin, kmax,  \
-                     ib, ie, itype, rtype)
-        recv_type_[i] = rtype
-        self.binit_ = 1       
-
-        return  # end, init method
-	
-
-    ################################################################
     #  Method: buildB
     #  Desc  : Create 'B-matrix' from distributed data
     #  Args  : ldata  : this task's (local)_ data
@@ -176,47 +150,45 @@ class BTools:
     ################################################################
     def buildB(self, ldata, cthresh, B, I, J):
 	
-        print(self.myrank_, ": BTools::buildB: starting...")
-        sys.stdout.flush()
+        if self.debug_:
+          print(self.myrank_, ": BTools::buildB: starting...")
+          sys.stdout.flush()
 
 #       ldata.flatten()
 
 	    # Gather all slabs here to perform thresholding:
      
-        print(self.myrank_, ": BTools::buildB: shape(ldata)=", ldata.shape, "shape(recvbuff)=", self.recvbuff_.shape, " ldata.dtype=", ldata.dtype)
         sys.stdout.flush()
 
         self.comm_.barrier()
         self.comm_.Allgather(ldata,self.recvbuff_)
         self.comm_.barrier()
 
-#       self.recvbuff_[self.myrank_,:] = ldata
-
-        print(self.myrank_, ": BTools::buildB: Allgather done")
-        sys.stdout.flush()
+        if self.debug_:
+          print(self.myrank_, ": BTools::buildB: Allgather done")
+          sys.stdout.flush()
 
         # Multiply local data by all gathered data and threshold:
         for i in range(0, self.nprocs_):
 
             n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
       
-            print(self.myrank_, ": BTools::buildB: local factor=", ldata)
-            print(self.myrank_, ": BTools::buildB: recvbuff[",i,"]=",self.recvbuff_[i,:])
-            print(self.myrank_, ": BTools::buildB: I_loc[",i,"]=",self.Ip_)
-            print(self.myrank_, ": BTools::buildB: J_loc[",i,"]=",self.Jp_)
-            print(self.myrank_, ": BTools::buildB: B_loc[",i,"]=",self.Bp_)
-            sys.stdout.flush()
+            if self.debug_:
+              print(self.myrank_, ": BTools::buildB: local factor=", ldata)
+              print(self.myrank_, ": BTools::buildB: recvbuff[",i,"]=",self.recvbuff_[i,:])
+              print(self.myrank_, ": BTools::buildB: I_loc[",i,"]=",self.Ip_)
+              print(self.myrank_, ": BTools::buildB: J_loc[",i,"]=",self.Jp_)
+              print(self.myrank_, ": BTools::buildB: B_loc[",i,"]=",self.Bp_)
+              sys.stdout.flush()
 
             # Append new global indices to return arrays:
             B.extend(self.Bp_[0:n])
             I.extend(self.Ip_[0:n])
             J.extend(self.Jp_[0:n])
 
-#           print(self.myrank_, ": buildB: len(l)[",i,"]=", len(ldata),\
-#                 " len(r)[",i,"]=",len(self.recvbuff_[i,:]))
-#           print(self.myrank_, ": buildB: len(B)[",i,"]=", len(B))
-        print(self.myrank_, ": BTools::buildB: partition thresholding done.")
-        sys.stdout.flush()
+        if self.debug_:
+          print(self.myrank_, ": BTools::buildB: partition thresholding done.")
+          sys.stdout.flush()
 
 
         return   # end, buildB method
@@ -263,63 +235,82 @@ class BTools:
         jmax = self.gn_[1]
         kmax = self.gn_[0]
 
-        # Find global starting index of local block:
-        (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
-        ib -= 1
-        lnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
-
         # Find global starting index of recv'd block:
         (ib, ie) = self.range(imin, imax, self.nprocs_, irecv)
         ib -= 1
-        rnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
+        ie -= 1
+        rnb0 = ib*(jmax-jmin+1)*(kmax-kmin+1)
+        nrslice = ie - ib + 1
+        rdata   = rdata.reshape(self.gn_[0]*self.gn_[1],nrslice)
+        if self.debug_:
+          print(self.myrank_, ": do_thresh: rdata.shape=",rdata.shape)
+          sys.stdout.flush()
 
-        
+        # Find global starting index of local block:
+        (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
+        ib -= 1
+        ie -= 1
+        lnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
+        nlslice = ie - ib + 1
+        ldata   = ldata.reshape(self.gn_[0]*self.gn_[1], nlslice)
+        if self.debug_:
+          print(self.myrank_, ": do_thrresh: ldata=",ldata)
+          sys.stdout.flush()
+
     	# Order s.t. we multiply
 	#    Transpose(ldata) X rdata:
-        # wherer Trarnspose(ldata) is a column vector, 
+        # where Transpose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
         n = 0
-        for i in range(0, len(ldata)):
-     	  # Locate in global grid:
-          ig    = int( float(lnb+i)/float(self.gn_[0]*self.gn_[1]) )
-          ntmp  = ig*self.gn_[0]*self.gn_[1]
-          jg    = int( float(lnb+i-ntmp)/float(self.gn_[0]) )
-          kg    = lnb + i - jg*self.gn_[0] - ntmp
+        for ii in range(0,nlslice):
+          lslice = ldata[:,ii]
+          if self.debug_:
+            print(self.myrank_, ": do_thrersh: lslice[",ii,"]=",lslice)
+            sys.stdout.flush()
+          lnb = (ib+ii)*(jmax-jmin+1)*(kmax-kmin+1)
+          for i in range(0,len(lslice)):
+     	    # Locate in global grid:
+            ig    = int( float(lnb+i)/float(self.gn_[0]*self.gn_[1]) )
+            ntmp  = ig*self.gn_[0]*self.gn_[1]
+            jg    = int( float(lnb+i-ntmp)/float(self.gn_[0]) )
+            kg    = lnb + i - jg*self.gn_[0] - ntmp
 
-	  # Compute global matrix index: 	    
-#         Ig    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
-          Ig    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
+#           kg    = int( float(lnb+i)/float(self.gn_[1]*self.gn_[2]) )
+#           ntmp  = kg*self.gn_[1]*self.gn_[2]
+#           jg    = int( float(lnb+i-ntmp)/float(self.gn_[2]) )
+#           ig    = lnb + i - jg*self.gn_[2] - ntmp
 
-        # if self.myrank_ == 0:
-#         print(self.myrank_,": i=",i," lnb=", lnb, " ig=",ig," jg=",jg,"kg=",kg,": Ig=", Ig)
-#         sys.stdout.flush()
+  	    # Compute global matrix index: 	    
+#           Ig    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+            Ig    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
 
-          for j in range(0, len(rdata)):
-            prod = ldata[i] * rdata[j]
+            for jj in range(0, nrslice):
+              rslice = rdata[:,jj]
+              rnb = rnb0 + jj*(jmax-jmin+1)*(kmax-kmin+1)
+              for j in range(0,len(rslice)):
+                prod = lslice[i] * rslice[j]
             
-            if abs(prod) >= thresh:
-     	      # Locate in global grid:
-              ig    = int( float(rnb+j)/float(self.gn_[0]*self.gn_[1]) )
-              ntmp  = ig*self.gn_[0]*self.gn_[1]
-              jg    = int( float(rnb+j-ntmp)/float(self.gn_[0]) )
-              kg    = rnb + j - jg*self.gn_[0] - ntmp
-           
-	      # Compute global matrix indices: 	    
-#             Jg    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
-              Jg    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
+                if abs(prod) >= thresh:
+         	  # Locate in global grid:
+                  ig    = int( float(rnb+j)/float(self.gn_[0]*self.gn_[1]) )
+                  ntmp  = ig*self.gn_[0]*self.gn_[1]
+                  jg    = int( float(rnb+j-ntmp)/float(self.gn_[0]) )
+                  kg    = rnb + j - jg*self.gn_[0] - ntmp
 
-        #     if self.myrank_ == 0:
-#             print(self.myrank_, ": j=",j," rnb=", rnb, " ig=",ig," jg=",jg,"kg=",kg, ": Ig, Jg=", Ig, Jg)
-#             sys.stdout.flush()
-             
-              B[n] = prod
-              I[n] = int(Ig)
-              J[n] = int(Jg)
+#                 kg    = int( float(rnb+j)/float(self.gn_[1]*self.gn_[2]) )
+#                 ntmp  = kg*self.gn_[1]*self.gn_[2]
+#                 jg    = int( float(rnb+j-ntmp)/float(self.gn_[2]) )
+#                 ig    = rnb + j - jg*self.gn_[2] - ntmp
            
-              n += 1
+    	          # Compute global matrix indices: 	    
+#                 Jg    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+                  Jg    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
 
-#       print(self.myrank_, ": do_thresh: number found=",n, " len(B)=", len(B))
-#       sys.stdout.flush()
+                  B[n] = prod
+                  I[n] = int(Ig)
+                  J[n] = int(Jg)
+           
+                  n += 1
 
         return n  # end, do_thresh method
 	

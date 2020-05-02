@@ -16,6 +16,9 @@ name     = MPI.Get_processor_name()
 print("main: tasks=",mpiTasks, " rank=", mpiRank,"machine name=",name)
 sys.stdout.flush()
 
+# Print debug info:
+bdebug = False
+
 #
 # Get the local data.
 #
@@ -23,14 +26,9 @@ sys.stdout.flush()
 
 #
 #
-#print ("main: constructing BTools, gdims=",gdims)
-#print ("main: constructing BTools, N.shape=",N.shape)
-#sys.stdout.flush()
-
-#
 # Set default local data grid size:
-NLx = 1
-NLy = 2
+NLx = 4
+NLy = 8
 NLz = 1
 
 # Create some (Fortran-ordered) test data in order:
@@ -40,15 +38,16 @@ gdims  = ([1, NLy, NLx*mpiTasks])  # global dims
 Nloc = np.ndarray(ldims,dtype='f',order='C') # local data
 Nglo = np.ndarray(gdims,dtype='f',order='C') # global data
 
-print("main: ldims", ldims)
-print("main: gdims", gdims)
-sys.stdout.flush()
+if bdebug:
+  print("main: ldims", ldims)
+  print("main: gdims", gdims)
+  sys.stdout.flush()
 
 
 #
 # Instantiate the BTools class before building B:
 #
-BTools = btools.BTools(comm, MPI.FLOAT, gdims)
+BTools = btools.BTools(comm, MPI.FLOAT, gdims, bdebug)
 
 # Global data:
 for k in range(0,gdims[0]):
@@ -58,17 +57,21 @@ for k in range(0,gdims[0]):
 
 # Local data (taken from global data):
 (ib, ie) = btools.BTools.range(1, gdims[2], mpiTasks, mpiRank)
-print (mpiRank,": main: ib=", ib, " ie=", ie)
-sys.stdout.flush()
+
+if bdebug:
+  print (mpiRank,": main: ib=", ib, " ie=", ie)
+  sys.stdout.flush()
+
 for k in range(0,ldims[0]):
   for j in range(0,ldims[1]):
     for i in range(0,ie-ib+1):
       Nloc[k,j,i] = Nglo[k,j,i+ib-1]
 #
 
-print (mpiRank,": main: Nloc=", Nloc)
-print (mpiRank,": main: Nglo=", Nglo)
-sys.stdout.flush()
+if bdebug:
+  print (mpiRank,": main: Nloc=", Nloc)
+  print (mpiRank,": main: Nglo=", Nglo)
+  sys.stdout.flush()
 
 #
 #
@@ -78,19 +81,20 @@ B          = []
 I          = []
 J          = []
 threshold = -1.0
-print (mpiRank,": main: calling BTools.buildB...")
-sys.stdout.flush()
+
+if bdebug:
+  print (mpiRank,": main: calling BTools.buildB...")
+  sys.stdout.flush()
 
 x = Nloc.flatten()
 Nloc = []
 
 BTools.buildB(x, threshold, B, I, J) 
-print (mpiRank, ": I=",I)
-print (mpiRank, ": J=",J)
+
+if bdebug:
+  print (mpiRank, ": I=",I)
+  print (mpiRank, ": J=",J)
   
-#print (mpiRank, ": len(B)=",len(B))
-#print (mpiRank, ": len(I)=",len(I))
-#print (mpiRank, ": len(J)=",len(J))
 
 lcount = len(B)                             # local number of entries
 comm.barrier()
@@ -108,23 +112,37 @@ if mpiRank == 0:
 C = np.tensordot(Nglo.flatten(), Nglo.flatten(), 0)
 C[abs(C) < threshold] = 0.
 
-print(mpiRank, ": main: C_mat= ", C)
-print(mpiRank, ": main: C= ", C.flatten())
-print(mpiRank, ": main: B= ", B)
+#print(mpiRank, ": main: C_mat= ", C)
+#print(mpiRank, ": main: C= ", C.flatten())
+#print(mpiRank, ": main: B= ", B)
 
-
-
+bdims = C.shape
+B_mat = np.ndarray(bdims,dtype='f') 
+for i in range(0,bdims[0]):
+  for j in range(0,bdims[1]):
+    B_mat[i,j] = 0.0
 #
 # Collect B-matrix entries that are
 # wrong:
 nbad = 0
 for i in range(0,len(B)):
     diff = C[I[i],J[i]] - B[i]
+    B_mat[I[i],J[i]] = B[i]
     if abs(diff) > 0:
         nbad += 1
-        print(mpiRank, ": I=",I[i], " J=",J[i], " C=", C[I[i],J[i]], " B=", B[i],  " diff=", diff)
+#       print(mpiRank, ": I=",I[i], " J=",J[i], " C=", C[I[i],J[i]], " B=", B[i],  " diff=", diff)
 
-if nbad > 0:
-  print("main: buildB FAILED: nbad=",nbad)
-else:
-  print("main: SUCCESS!")
+if bdebug:
+  print(mpiRank, ": main: C_mat=\n", C)
+  print(mpiRank, ": main: B_mat=\n", B_mat)
+  sys.stdout.flush()
+
+gnbad = comm.allreduce(nbad, op=MPI.SUM) # global max nbad
+
+if mpiRank == 0:
+  if gnbad > 0:
+    print("\nmain: buildB FAILED: nbad=",gnbad)
+  else:
+    print("\nmain: SUCCESS!")
+
+comm.barrier()

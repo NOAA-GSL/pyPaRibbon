@@ -3,7 +3,7 @@
 #  Desc  : Provides methods for handling pribbon matrix
 #          operations in parallel
 ################################################################
-#from netCDF4 import Dataset
+from   netCDF4 import Dataset
 from   mpi4py import MPI
 import numpy as np
 import array
@@ -140,7 +140,17 @@ class BTools:
 
     ################################################################
     #  Method: buildB
-    #  Desc  : Create 'B-matrix' from distributed data
+    #  Desc  : Create 'B-matrix' from distributed data.
+    #          Note: This method currently uses an MPI collective
+    #                to gather all task-'local' data into the recvbuff_.
+    #                This is equivalent to having each taks read the 
+    #                entire grid data independently. So, strictly
+    #                speaking, MPI gather isn't required. We retain
+    #                it because it's an artifact of attempts to
+    #                use point-to-point MOPI calls to send.recv data,
+    #                and we may wish to return to it, so as to reduce
+    #                the memory footprint on each MPI task.
+    #               
     #  Args  : ldata  : this task's (local)_ data
     #          cthresh: cov threshold
     #          B      : array of correlations that exceed threshold
@@ -315,7 +325,7 @@ class BTools:
         return n  # end, do_thresh method
 	
 
-    ####################################################
+    ################################################################
     #  Method: getSlabData
     #  Desc  : Reads specified NetCDF4 file, and returns a slab of data
     #          'owned' by specified MPI rank.
@@ -435,4 +445,53 @@ class BTools:
           gdims = ([1, gdims[0], gdims[1]])
         gdims = ([int(gdims[0]),int(gdims[1]),int(gdims[2]) ])
 
-        return N, gdims
+        return N, gdims  # end, getSlabData netghid
+
+
+
+    ################################################################
+    #  Method: writeResults
+    #  Desc  : Writes BMata ressults to a file
+    #  Args  : 
+    #          B, I, J     : B-matrix entries, and I,J locations in matrix
+    #          fileName    : string, filename of the netCDF file to open
+    #          mpiRank     : MPI task id
+    # Returns: none.
+    ################################################################
+    @staticmethod
+    def writeResults(xB,xI,xJ,filename,mpiRank):
+
+      print(filename,mpiRank)
+
+      #
+      # Check the inputs.
+      #
+      if xB.size != xI.size:
+         sys.exit("Error, bad size in writeResults!")
+      if xI.size != xJ.size:
+         sys.exit("Error, bad size in writeResults!")
+      if mpiRank < 0:
+         sys.exit("Error, bad rank in WriteREsults!")   
+
+      # Open the netCDF4 file.
+      ncout = Dataset(filename + str(mpiRank), 'w', formt='NETCDF4')
+
+      # Define a dimension for B,I,J.
+      nResults = xB.size
+      ncout.createDimension('nResults',None)
+
+      # Create variables: B,I,J in the file.
+      B = ncout.createVariable('B', np.dtype('double').char, ('nResults'))
+      I = ncout.createVariable('I', np.dtype('int').char, ('nResults'))
+      J = ncout.createVariable('J', np.dtype('int').char, ('nResults'))
+
+      # Write the variables into the file.
+      B[:] = xB
+      I[:] = xI
+      J[:] = xJ
+
+      # Close the file.
+      ncout.close()
+
+      # end, method writeResults
+

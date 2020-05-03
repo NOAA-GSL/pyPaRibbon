@@ -157,24 +157,24 @@ class BTools:
     #               
     #  Args  : ldata  : this task's (local)_ data
     #          cthresh: cov threshold
-    #          B      : array of correlations that exceed threshold
-    #          I, J   : arrays of indices into global B mat
-    #		       where cov > thresh. Each is of the same length
-    #          fname  : if set, then, B, I, J won't be set or extended
-    #                   here, but, rather the results will be put
-    #                   to specified file
+    #          B       : array of correlations that exceed threshold
+    #          I, J    : arrays of indices into global B mat
+    #		             where cov > thresh. Each is of the same length
+    #          filename: if set, then, B, I, J won't be set or extended
+    #                    here, but, rather the results will be put
+    #                    to specified file
     # Returns: number entries meeting thrershold criterion
     ################################################################
-    def buildB(self, ldata, cthresh, B, I, J, fname=None):
+    def buildB(self, ldata, cthresh, B, I, J, filename=None):
 	
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: starting...")
           sys.stdout.flush()
 
         # Truncate specified file:
-        if fname != None:
-          self.writeResults(self.Bp_[0:n], self.Ip_[0:n], self.Jp_[0:n], \
-                            fname, self.myrank_, clobber_only=True) 
+        if filename != None:
+          self.writeResults(self.Bp_, self.Ip_, self.Jp_, \
+                            filename, self.myrank_, clobber_only=True) 
           
 
 	# Gather all slabs here to perform thresholding:
@@ -204,14 +204,14 @@ class BTools:
               sys.stdout.flush()
 
             ntot += n
-            if fname != None:
+            if filename != None:
               # Append new global indices to return arrays:
               B.extend(self.Bp_[0:n])
               I.extend(self.Ip_[0:n])
               J.extend(self.Jp_[0:n])
             else:
               self.writeResults(self.Bp_[0:n], self.Ip_[0:n], self.Jp_[0:n], \
-                                fname, self.myrank_, mode='a') 
+                                filename, self.myrank_, mode='a') 
 
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: partition thresholding done.")
@@ -478,7 +478,15 @@ class BTools:
     @staticmethod
     def writeResults(xB,xI,xJ,filename,mpiRank, mode='w', clobber_only=False):
 
-      print(filename,mpiRank)
+      # print(filename,mpiRank)
+
+      # Do clobber_only:
+      if clobber_only:
+        ncout = Dataset(filename + "." + str(mpiRank) + ".ncl", 'w', \
+                        formt='NETCDF4', clobber=True)
+        ncout.close()
+        return
+      
 
       #
       # Check the inputs.
@@ -490,16 +498,9 @@ class BTools:
       if mpiRank < 0:
          sys.exit("Error, bad rank in WriteREsults!")   
 
-      # Do clobber_only:
-      if clobber_only:
-        ncout = Dataset(filename + str(mpiRank), 'w', formt='NETCDF4', \
-                        clobber=True)
-        ncout.close()
-        return
-      
 
       # Open the netCDF4 file.
-      ncout = Dataset(filename + str(mpiRank), mode, formt='NETCDF4')
+      ncout = Dataset(filename+"." + str(mpiRank) + ".ncl", mode, formt='NETCDF4')
 
       # Define a dimension for B,I,J.
       nResults = xB.size

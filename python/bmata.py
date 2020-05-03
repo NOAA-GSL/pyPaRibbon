@@ -48,13 +48,13 @@ threshold  = 0.8
 #sys.stdout.flush()
 N = np.asarray(N, order='C')
 x=N.flatten()
-BTools.buildB(x, threshold, B, I, J, fname="ljunk") 
+lcount=BTools.buildB(x, threshold, B, I, J, filename="ljunk") 
   
-print (mpiRank, ": len(B)=",len(B))
-print (mpiRank, ": len(I)=",len(I))
-print (mpiRank, ": len(J)=",len(J))
+#print (mpiRank, ": len(B)=",len(B))
+#print (mpiRank, ": len(I)=",len(I))
+#print (mpiRank, ": len(J)=",len(J))
+#lcount = len(B)                             # local number of entries
 
-lcount = len(B)                             # local number of entries
 comm.barrier()
 gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
 print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)

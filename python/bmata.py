@@ -1,9 +1,9 @@
 ########################################################################
-#             Name  : Bmata                                            #
-#             Desc  : B-Matrix Analysis program main driver            #
-#             Author: L. Stringer                                      #
-#                     D. Rosenberg                                     #
-#             Date:   April 2020                                       #
+# Name  : Bmata                                                        #
+# Desc  : B-Matrix Analysis program main driver                        #
+# Author: L. Stringer                                                  #
+#         D. Rosenberg                                                 #
+# Date:   April 2020                                                   #
 ########################################################################
 import os, sys
 import numpy as np

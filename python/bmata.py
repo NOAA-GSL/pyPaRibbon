@@ -43,12 +43,12 @@ BTools = btools.BTools(comm, MPI.FLOAT, gdims, False)
 B          = []
 I          = []
 J          = []
-threshhold = 0.8
+threshold  = 0.8
 #print (mpiRank,": main: calling BTools.buildB...")
 #sys.stdout.flush()
 N = np.asarray(N, order='C')
 x=N.flatten()
-BTools.buildB(x, threshhold, B, I, J) 
+BTools.buildB(x, threshold, B, I, J) 
   
 print (mpiRank, ": len(B)=",len(B))
 print (mpiRank, ": len(I)=",len(I))

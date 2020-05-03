@@ -48,7 +48,7 @@ threshold  = 0.8
 #sys.stdout.flush()
 N = np.asarray(N, order='C')
 x=N.flatten()
-BTools.buildB(x, threshold, B, I, J) 
+BTools.buildB(x, threshold, B, I, J, fname="ljunk") 
   
 print (mpiRank, ": len(B)=",len(B))
 print (mpiRank, ": len(I)=",len(I))
@@ -60,6 +60,7 @@ gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
 print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
 print(mpiRank, ": main: number entries found: ", gcount)
 
-writeResults(B,I,J,"ljunk",mpiRank)
+
+#writeResults(B,I,J,"ljunk",mpiRank)
 comm.barrier()
 print(mpiRank, ": main: data written to file ", "ljunk.")

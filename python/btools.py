@@ -22,7 +22,7 @@ class BTools:
     #          debug   (in): print debug info (1); else don't (0)
     # Returns: none
     ################################################################
-    def __init__(self, comm, mpiftype, gn, debug):
+    def __init__(self, comm, mpiftype, gn, debug=False):
 
         # Class member data:
         self.comm_     = comm
@@ -160,17 +160,24 @@ class BTools:
     #          B      : array of correlations that exceed threshold
     #          I, J   : arrays of indices into global B mat
     #		       where cov > thresh. Each is of the same length
-    # Returns: none
+    #          fname  : if set, then, B, I, J won't be set or extended
+    #                   here, but, rather the results will be put
+    #                   to specified file
+    # Returns: number entries meeting thrershold criterion
     ################################################################
-    def buildB(self, ldata, cthresh, B, I, J):
+    def buildB(self, ldata, cthresh, B, I, J, fname=None):
 	
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: starting...")
           sys.stdout.flush()
 
-#       ldata.flatten()
+        # Truncate specified file:
+        if fname != None:
+          self.writeResults(self.Bp_[0:n], self.Ip_[0:n], self.Jp_[0:n], \
+                            fname, self.myrank_, clobber_only=True) 
+          
 
-	    # Gather all slabs here to perform thresholding:
+	# Gather all slabs here to perform thresholding:
      
         sys.stdout.flush()
 
@@ -183,6 +190,7 @@ class BTools:
           sys.stdout.flush()
 
         # Multiply local data by all gathered data and threshold:
+        ntot = 0
         for i in range(0, self.nprocs_):
 
             n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
@@ -195,17 +203,22 @@ class BTools:
               print(self.myrank_, ": BTools::buildB: B_loc[",i,"]=",self.Bp_)
               sys.stdout.flush()
 
-            # Append new global indices to return arrays:
-            B.extend(self.Bp_[0:n])
-            I.extend(self.Ip_[0:n])
-            J.extend(self.Jp_[0:n])
+            ntot += n
+            if fname != None:
+              # Append new global indices to return arrays:
+              B.extend(self.Bp_[0:n])
+              I.extend(self.Ip_[0:n])
+              J.extend(self.Jp_[0:n])
+            else:
+              self.writeResults(self.Bp_[0:n], self.Ip_[0:n], self.Jp_[0:n], \
+                                fname, self.myrank_, mode='a') 
 
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: partition thresholding done.")
           sys.stdout.flush()
 
 
-        return   # end, buildB method
+        return ntot  # end, buildB method
 	
 
     ####################################################
@@ -458,10 +471,12 @@ class BTools:
     #          B, I, J     : B-matrix entries, and I,J locations in matrix
     #          fileName    : string, filename of the netCDF file to open
     #          mpiRank     : MPI task id
+    #          mode        : open mode ('w', 'a')
+    #          clobber_only: if True, simply truncate contents, and return
     # Returns: none.
     ################################################################
     @staticmethod
-    def writeResults(xB,xI,xJ,filename,mpiRank):
+    def writeResults(xB,xI,xJ,filename,mpiRank, mode='w', clobber_only=False):
 
       print(filename,mpiRank)
 
@@ -475,8 +490,16 @@ class BTools:
       if mpiRank < 0:
          sys.exit("Error, bad rank in WriteREsults!")   
 
+      # Do clobber_only:
+      if clobber_only:
+        ncout = Dataset(filename + str(mpiRank), 'w', formt='NETCDF4', \
+                        clobber=True)
+        ncout.close()
+        return
+      
+
       # Open the netCDF4 file.
-      ncout = Dataset(filename + str(mpiRank), 'w', formt='NETCDF4')
+      ncout = Dataset(filename + str(mpiRank), mode, formt='NETCDF4')
 
       # Define a dimension for B,I,J.
       nResults = xB.size

@@ -56,7 +56,7 @@ for k in range(0,gdims[0]):
       Nglo[k,j,i] = float(k + j*gdims[0] + i*gdims[0]*gdims[1])
 
 # Local data (taken from global data):
-(ib, ie) = btools.BTools.range(1, gdims[2], mpiTasks, mpiRank)
+(ib, ie) = btools.BTools.range(gdims[2], mpiTasks, mpiRank)
 
 if bdebug:
   print (mpiRank,": main: ib=", ib, " ie=", ie)

@@ -34,7 +34,7 @@ sys.stdout.flush()
 # Instantiate the BTools class before building B:
 #
 #gdims = (1,249,399)
-BTools = btools.BTools(comm, MPI.FLOAT, gdims, True)
+BTools = btools.BTools(comm, MPI.FLOAT, gdims, False)
 
 
 #

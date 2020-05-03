@@ -7,8 +7,9 @@
 ########################################################################
 import os, sys
 import numpy as np
-from mpi4py import MPI
-from netCDF4 import Dataset
+from   mpi4py import MPI
+from   netCDF4 import Dataset
+import time
 import btools
 
 
@@ -48,7 +49,10 @@ threshold  = 0.8
 #sys.stdout.flush()
 N = np.asarray(N, order='C')
 x=N.flatten()
+
+t0 = time.time()
 lcount=BTools.buildB(x, threshold, B, I, J, filename="ljunk") 
+t1 = time.time()
   
 #print (mpiRank, ": len(B)=",len(B))
 #print (mpiRank, ": len(I)=",len(I))
@@ -57,10 +61,14 @@ lcount=BTools.buildB(x, threshold, B, I, J, filename="ljunk")
 
 comm.barrier()
 gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
-print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
-print(mpiRank, ": main: number entries found: ", gcount)
 
+ldt = t1 - t0;
+gdt = comm.allreduce(ldt, op=MPI.MAX) # global number of entries
 
 #writeResults(B,I,J,"ljunk",mpiRank)
 comm.barrier()
-print(mpiRank, ": main: data written to file ", "ljunk.")
+if mpiRank == 0:
+  print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
+  print(mpiRank, ": main: number entries found: ", gcount)
+  print(mpiRank, ": main: data written to file: ", "ljunk.")
+  print(mpiRank, ": main: execution time      : ", gdt)

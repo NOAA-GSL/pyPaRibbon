@@ -40,7 +40,7 @@ class BTools:
         # Create recv buffs for this task:
         nxmax = 0
         for i in range(0,self.nprocs_):
-            (ib, ie) = BTools.range(1, self.gn_[2], self.nprocs_, i)
+            (ib, ie) = BTools.range(self.gn_[2], self.nprocs_, i)
             nxmax = max(nxmax, ie-ib+1)
 
         szbuff = nxmax*gn[0]*gn[1]
@@ -77,15 +77,18 @@ class BTools:
 
     ################################################################
     #  Method: range
-    #  Desc  : Compute (Fortran) array bounds given global bounds
-    #  Args  : gib    (in): global starting index in a given dir
-    #          gie    (in): global ending index in given dir
+    #  Desc  : Compute (Fortran) array bounds given global length
+    #  Args  : 
+    #          gn     (in): global length 
     #          nprocs (in): total number of tasks
     #          myrank (in): task's rank
     # Returns: (ib ie): task's local starting, ending indices
     ################################################################
     @staticmethod
-    def range(gib, gie, nprocs, myrank):
+    def range(gn, nprocs, myrank):
+
+        gib = 1
+        gie = gn
 
         i1 = 0
         i2 = 0
@@ -100,7 +103,7 @@ class BTools:
         if i2 > myrank: 
            ie = ie + 1
 	
-        return ib, ie  # end, range method
+        return ib-1, ie-1  # end, range method
 	
 
     ################################################################
@@ -246,9 +249,7 @@ class BTools:
         kmax = self.gn_[0]
 
         # Find global starting index of recv'd block:
-        (ib, ie) = self.range(imin, imax, self.nprocs_, irecv)
-        ib -= 1
-        ie -= 1
+        (ib, ie) = self.range(imax, self.nprocs_, irecv)
         rnb0 = ib*(jmax-jmin+1)*(kmax-kmin+1)
         nrslice = ie - ib + 1
         rdata   = rdata.reshape(self.gn_[0]*self.gn_[1],nrslice)
@@ -257,15 +258,14 @@ class BTools:
           sys.stdout.flush()
 
         # Find global starting index of local block:
-        (ib, ie) = self.range(imin, imax, self.nprocs_, self.myrank_)
-        ib -= 1
-        ie -= 1
+        (ib, ie) = self.range(imax, self.nprocs_, self.myrank_)
         lnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
         nlslice = ie - ib + 1
-        ldata   = ldata.reshape(self.gn_[0]*self.gn_[1], nlslice)
         if self.debug_:
-          print(self.myrank_, ": do_thrresh: ldata=",ldata)
+        # print(self.myrank_, ": do_thresh: ldata=",ldata)
+          print(self.myrank_, ": do_thresh: ldata.shape=",ldata.shape, " nlslice=", nlslice)
           sys.stdout.flush()
+        ldata   = ldata.reshape(self.gn_[0]*self.gn_[1], nlslice)
 
     	# Order s.t. we multiply
 	#    Transpose(ldata) X rdata:
@@ -274,9 +274,9 @@ class BTools:
         n = 0
         for ii in range(0,nlslice):
           lslice = ldata[:,ii]
-          if self.debug_:
-            print(self.myrank_, ": do_thrersh: lslice[",ii,"]=",lslice)
-            sys.stdout.flush()
+         #if self.debug_:
+         #  print(self.myrank_, ": do_thrersh: lslice[",ii,"]=",lslice)
+         #  sys.stdout.flush()
           lnb = (ib+ii)*(jmax-jmin+1)*(kmax-kmin+1)
           for i in range(0,len(lslice)):
      	    # Locate in global grid:
@@ -396,9 +396,9 @@ class BTools:
            for i in range(0,iensembles):
               Nsum = Nsum + N[i,itime,1,:,:]
            N = np.true_divide(Nsum,iensembles+1)
-           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
+           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
            gdims = N.shape
-           N = N[0,:,iLstart:iLend]
+           N = N[0,:,iLstart:(iLend+1)]
         elif means == 2:  # Subtract the ensemble mean.
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
@@ -406,8 +406,8 @@ class BTools:
            iensembles,ntimes,iz,iy,ix = N.shape
            mean = np.mean(N[0,0,0,:,:])
            gdims = mean.shape
-           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           N = N[0,0,0,:,iLstart:iLend] - mean
+           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
+           N = N[0,0,0,:,iLstart:(iLend+1)] - mean
         elif means == 3:
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
@@ -418,15 +418,16 @@ class BTools:
               Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
            N = np.true_divide(Nsum,iensembles)
            gdims = N.shape
-           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           N = N[0,:,iLstart:iLend]
+           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
+           print(mpiRank, ": getDataSlice: iLstart=", iLstart, " iLend=", iLend)
+           N = N[0,:,iLstart:(iLend+1)]
         elif means == 4:
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
               sys.exit("Error, ensemble should have five dimensions!")
            iensembles,ntimes,iz,iy,ix = N.shape
-           iLstart,iLend = BTools.range(0,ix,mpiTasks, mpiRank)
-           N = N[0,0,0,:,iLstart:iLend]
+           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
+           N = N[0,0,0,:,iLstart:(iLend+1)]
            gdims = ([1,iy,ix])
         else:
            sys.exit("Error, bad mean value!")

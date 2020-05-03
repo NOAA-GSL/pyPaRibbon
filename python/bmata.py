@@ -1,5 +1,9 @@
 ########################################################################
-#             BMata: B-Matrix Analysis program main driver             #
+#             Name  : Bmata                                            #
+#             Desc  : B-Matrix Analysis program main driver            #
+#             Author: L. Stringer                                      #
+#                     D. Rosenberg                                     #
+#             Date:   April 2020                                       #
 ########################################################################
 import os, sys
 import numpy as np
@@ -19,18 +23,19 @@ sys.stdout.flush()
 
 
 #
-# Instantiate the BTools class before building B:
-#
-gdims = (1,249,399)
-BTools = btools.BTools(comm, MPI.FLOAT, gdims, False)
-
-#
 # Get the local data.
 #
 (N,gdims) = btools.BTools.getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 3, 0)
 print ("main: constructing BTools, gdims=",gdims)
 print ("main: constructing BTools, N.shape=",N.shape)
 sys.stdout.flush()
+
+#
+# Instantiate the BTools class before building B:
+#
+#gdims = (1,249,399)
+BTools = btools.BTools(comm, MPI.FLOAT, gdims, True)
+
 
 #
 # Build the distributed B matrix.
@@ -56,3 +61,5 @@ print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
 print(mpiRank, ": main: number entries found: ", gcount)
 
 writeResults(B,I,J,"ljunk",mpiRank)
+comm.barrier()
+print(mpiRank, ": main: data written to file ", "ljunk.")

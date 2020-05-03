@@ -44,8 +44,8 @@ B          = []
 I          = []
 J          = []
 threshhold = 0.8
-print (mpiRank,": main: calling BTools.buildB...")
-sys.stdout.flush()
+#print (mpiRank,": main: calling BTools.buildB...")
+#sys.stdout.flush()
 N = np.asarray(N, order='C')
 x=N.flatten()
 BTools.buildB(x, threshhold, B, I, J) 

@@ -42,7 +42,8 @@ class BTools:
         for i in range(0,self.nprocs_):
             (ib, ie) = BTools.range(self.gn_[2], self.nprocs_, i)
             nxmax = max(nxmax, ie-ib+1)
-
+        
+        self.nxmax_ = nxmax
         szbuff = nxmax*gn[0]*gn[1]
 
         if self.debug_:
@@ -252,7 +253,7 @@ class BTools:
         (ib, ie) = self.range(imax, self.nprocs_, irecv)
         rnb0 = ib*(jmax-jmin+1)*(kmax-kmin+1)
         nrslice = ie - ib + 1
-        rdata   = rdata.reshape(self.gn_[0]*self.gn_[1],nrslice)
+        rdata   = rdata.reshape(self.gn_[0]*self.gn_[1],self.nxmax_)
         if self.debug_:
           print(self.myrank_, ": do_thresh: rdata.shape=",rdata.shape)
           sys.stdout.flush()

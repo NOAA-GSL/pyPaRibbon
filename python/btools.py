@@ -450,7 +450,7 @@ class BTools:
            print (mpiRank,": getSlabData: N shape=",N.shape)
            sys.stdout.flush()
            N = N[::decimate,::decimate]
-           gdims = ([gdims[0],gdims[1], gdims[2]/decimate+1])
+           gdims = ([gdims[0]/decimate+1,gdims[1]/decimate+1, gdims[2]/decimate+1])
  
 
         nc.close

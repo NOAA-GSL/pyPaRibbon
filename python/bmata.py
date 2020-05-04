@@ -22,7 +22,6 @@ name     = MPI.Get_processor_name()
 print("main: tasks=",mpiTasks, " rank=", mpiRank,"machine name=",name)
 sys.stdout.flush()
 
-
 #
 # Get the local data.
 #

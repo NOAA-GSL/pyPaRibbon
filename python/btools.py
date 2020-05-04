@@ -65,13 +65,13 @@ class BTools:
           print("BTools::__init__: linsz=",linsz)
           sys.stdout.flush()
         if   mpiftype == MPI.FLOAT:
-            self.Bp_ = array.array('f' , (0.0,)*linsz)
+            self.Bp_ = np.zeros(linsz, dtype=np.float32)
         elif mpiftype == MPI.DOUBLE:
-            self.Bp_ = array.array('d' , (0.0,)*linsz)
+            self.Bp_ = np.zeros(linsz, dtype=np.float64)
         else:
             assert 0, "Input type must be float or double"
-        self.Ip_ = array.array('i', (0,)*linsz)
-        self.Jp_ = array.array('i', (0,)*linsz)
+        self.Ip_ = np.zeros(linsz, dtype=np.int64)
+        self.Jp_ = np.zeros(linsz, dtype=np.int64)
 
 	# end, constructor
 
@@ -151,13 +151,16 @@ class BTools:
     #                entire grid data independently. So, strictly
     #                speaking, MPI gather isn't required. We retain
     #                it because it's an artifact of attempts to
-    #                use point-to-point MOPI calls to send.recv data,
-    #                and we may wish to return to it, so as to reduce
-    #                the memory footprint on each MPI task.
+    #                use point-to-point MOPI calls to sendrrecv data,
+    #                and we may wish to return to this, so as to reduce
+    #                the memory footprint on each MPI task. This method
+    #                computes entries for the _entire_ covariance matrix,
+    #                even though it is symmetric. In this way, the distributed
+    #                computation is better load-balenced.
     #               
     #  Args  : ldata  : this task's (local)_ data
-    #          cthresh: cov threshold
-    #          B       : array of correlations that exceed threshold
+    #          cthresh: corr coeff threshold
+    #          B       : array of covariances whose corr. coeffs exceed cthresh
     #          I, J    : arrays of indices into global B mat
     #		             where cov > thresh. Each is of the same length
     #          filename: if set, then, B, I, J won't be set or extended
@@ -227,10 +230,10 @@ class BTools:
     #          global indices where covariance exceeds
     #          specified threshold.
     #  Args  : ldata : this task's (local) data block, assumed 'flattened'
-    #          rdata : off-task (remote) data clock, assumed 'flattened'
+    #          rdata : off-task (remote) data block, assumed 'flattened'
     #          irecv : task id that rdata is received from
-    #          thresh: threshold covariance
-    #          B     : array of correlations that exceed threshold
+    #          thresh: corr coeff threshold
+    #          B     : array of covariances whose corr. coeffs exceed cthresh
     #          I, J  : arrays of indices into global B mat
     #		       where cov > thresh. We assume that I, J 
     #                  are the same length as B
@@ -246,14 +249,12 @@ class BTools:
         
         # Just in case, resize operand arrays if necessary:
         if len(ldata)*len(rdata) > len(self.Bp_):
-            x = Bp_[0]
-            self.Bp_.clear()
-            self.Ip_.clear()
-            self.Jp_.clear()
-            self.Bp_ = [0.0]*(len(ldata)*len(rdata))
-            self.Ip_ = [0]  *(len(ldata)*len(rdata)) 
-            self.Jp_ = [0]  *(len(ldata)*len(rdata)) 
-            
+            if self.mpiftype_ == MPI.FLOAT:
+               self.Bp_ = np.zeros(len(ldata)*len(rdata), dtype=np.float32)
+            elif self.mpiftype_ == MPI.DOUBLE:
+               self.Bp_ = np.zeros(len(ldata)*len(rdata), dtype=np.float64)
+            self.Ip_ = np.zeros(len(ldata)*len(rdata), dtype=np.int64) 
+            self.Jp_ = np.zeros(len(ldata)*len(rdata), dtype=np.int64)
 
         imin = 1
         jmin = 1
@@ -312,9 +313,9 @@ class BTools:
               rslice = rdata[:,jj]
               rnb = rnb0 + jj*(jmax-jmin+1)*(kmax-kmin+1)
               for j in range(0,len(rslice)):
-                prod = lslice[i] * rslice[j]
-            
-                if abs(prod) >= thresh:
+                prod  = lslice[i] * rslice[j]  # covariance
+                denom = lslice[i]*rslice[j]    # correlation coefficient
+                if abs(prod/denom) >= thresh:
          	  # Locate in global grid:
                   ig    = int( float(rnb+j)/float(self.gn_[0]*self.gn_[1]) )
                   ntmp  = ig*self.gn_[0]*self.gn_[1]
@@ -446,11 +447,11 @@ class BTools:
         else:
            sys.exit("Error, bad mean value!")
  
-        if decimate != 0:
+        if decimate > 1:
            print (mpiRank,": getSlabData: N shape=",N.shape)
            sys.stdout.flush()
            N = N[::decimate,::decimate]
-           gdims = ([gdims[0]/decimate+1,gdims[1]/decimate+1, gdims[2]/decimate+1])
+           gdims = ([gdims[0decimate+1],gdims[1]/decimate+1, gdims[2]/decimate+1])
  
 
         nc.close

@@ -204,7 +204,7 @@ class BTools:
               sys.stdout.flush()
 
             ntot += n
-            if filename != None:
+            if filename == None:
               # Append new global indices to return arrays:
               B.extend(self.Bp_[0:n])
               I.extend(self.Ip_[0:n])

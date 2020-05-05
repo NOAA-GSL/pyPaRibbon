@@ -420,7 +420,6 @@ class BTools:
         #
         #    1: <T(x,y,x)> = Sum ens T(ens,x,y,z)/num ensembles
         #    2: T(ens,x,y,z) - <T(x,y,z)>
-        #    3: < T(ens,x,y,z) - <T(x,y,z)> >
         #    4: raw (no subtracted mean)
  
         if means == 1: # T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
@@ -464,7 +463,7 @@ class BTools:
 #          iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
 #          print(mpiRank, ": getDataSlice: iLstart=", iLstart, " iLend=", iLend)
 #          N = N[0,:,iLstart:(iLend+1)]
-        elif means == 4:
+        elif means == 3:
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
               sys.exit("Error, ensemble should have five dimensions!")

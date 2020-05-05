@@ -25,16 +25,18 @@ sys.stdout.flush()
 #
 # Get the local data.
 #
-(N,gdims) = btools.BTools.getSlabData("Tmerged.nc", "T", 0, mpiTasks, mpiRank, 3, 0)
-print ("main: constructing BTools, gdims=",gdims)
-print ("main: constructing BTools, N.shape=",N.shape)
-sys.stdout.flush()
+(N,nens,gdims) = btools.BTools.getSlabData("Tmerged10.nc", "T", 0, mpiTasks, mpiRank, 2, 1)
+if mpiRank == 0:
+  print (mpiRank, ": main: constructing BTools, nens   =",nens)
+  print (mpiRank, ": main: constructing BTools, gdims  =",gdims)
+  print (mpiRank, ": main: constructing BTools, N.shape=",N.shape)
+  sys.stdout.flush()
 
 #
 # Instantiate the BTools class before building B:
 #
 #gdims = (1,249,399)
-BTools = btools.BTools(comm, MPI.FLOAT, gdims, False)
+BTools = btools.BTools(comm, MPI.FLOAT, nens, gdims, False)
 
 
 #
@@ -50,7 +52,7 @@ N = np.asarray(N, order='C')
 x=N.flatten()
 
 t0 = time.time()
-lcount=BTools.buildB(x, threshold, B, I, J, filename="ljunk") 
+lcount=BTools.buildB(x, threshold, B, I, J)#, filename="ljunk") 
 t1 = time.time()
   
 #print (mpiRank, ": len(B)=",len(B))

@@ -18,24 +18,26 @@ class BTools:
     #  Desc  : Constructor
     #  Args  : comm    (in): communicator
     #          mpiftype(in): MPI float type of data 
+    #          nens    (in): number of ensembles 
     #          gn      (in): 1d array of global data sizes: (Nz, Ny, Nz)
     #          debug   (in): print debug info (1); else don't (0)
     # Returns: none
     ################################################################
-    def __init__(self, comm, mpiftype, gn, debug=False):
+    def __init__(self, comm, mpiftype, nens, gn, debug=False):
 
         # Class member data:
-        self.comm_     = comm
-        self.myrank_   = comm.Get_rank()
-        self.nprocs_   = comm.Get_size()
-        self.mpiftype_ = mpiftype
+        self.comm_      = comm
+        self.myrank_    = comm.Get_rank()
+        self.nprocs_    = comm.Get_size()
+        self.mpiftype_  = mpiftype
 
         self.send_type_ = mpiftype
         self.recv_type_ = []
         assert len(gn)==3, "Invalid dimension spec"
-        self.gn_ = gn
+        self.nens_      = nens
+        self.gn_        = gn
 
-        self.debug_ = debug
+        self.debug_     = debug
 
         # Create recv buffs for this task:
         nxmax = 0
@@ -44,7 +46,7 @@ class BTools:
             nxmax = max(nxmax, ie-ib+1)
         
         self.nxmax_ = nxmax
-        szbuff = nxmax*gn[0]*gn[1]
+        szbuff = nens*nxmax*gn[0]*gn[1]
 
         if self.debug_:
           print(self.myrank_, ": __init__: nxmax=",nxmax," szbuff=",szbuff," gn=",gn)
@@ -158,8 +160,8 @@ class BTools:
     #                even though it is symmetric. In this way, the distributed
     #                computation is better load-balenced.
     #               
-    #  Args  : ldata  : this task's (local)_ data
-    #          cthresh: corr coeff threshold
+    #  Args  : ldata   : this task's (local)_ data
+    #          cthresh : corr coeff threshold
     #          B       : array of covariances whose corr. coeffs exceed cthresh
     #          I, J    : arrays of indices into global B mat
     #		             where cov > thresh. Each is of the same length
@@ -183,6 +185,10 @@ class BTools:
 	# Gather all slabs here to perform thresholding:
      
         sys.stdout.flush()
+        
+        if self.debug_:
+          print(self.myrank_, ": BTools::buildB: ldata.shape=",ldata.shape, " recvbuff.shape=", self.recvbuff_.shape)
+          sys.stdout.flush()
 
         self.comm_.barrier()
         self.comm_.Allgather(ldata,self.recvbuff_)
@@ -196,7 +202,7 @@ class BTools:
         ntot = 0
         for i in range(0, self.nprocs_):
 
-            n = self.do_thresh(ldata, self.recvbuff_[i,:], i, cthresh, self.Bp_, self.Ip_, self.Jp_) 
+            n = self.do_thresh(ldata, self.recvbuff_[i,:], i, self.nens_, cthresh, self.Bp_, self.Ip_, self.Jp_) 
       
             if self.debug_:
               print(self.myrank_, ": BTools::buildB: local factor=", ldata)
@@ -232,6 +238,7 @@ class BTools:
     #  Args  : ldata : this task's (local) data block, assumed 'flattened'
     #          rdata : off-task (remote) data block, assumed 'flattened'
     #          irecv : task id that rdata is received from
+    #          nens  : number of ensembles (always the first index)
     #          thresh: corr coeff threshold
     #          B     : array of covariances whose corr. coeffs exceed cthresh
     #          I, J  : arrays of indices into global B mat
@@ -240,7 +247,7 @@ class BTools:
     #                  as B
     # Returns: number of values found that meet threshold criterion
     ################################################################
-    def do_thresh(self, ldata, rdata, irecv, thresh, B, I, J):
+    def do_thresh(self, ldata, rdata, irecv, nens, thresh, B, I, J):
 	
         assert len(ldata.shape)==1
         assert len(rdata.shape)==1
@@ -262,12 +269,12 @@ class BTools:
         imax = self.gn_[2]
         jmax = self.gn_[1]
         kmax = self.gn_[0]
-
+                                
         # Find global starting index of recv'd block:
         (ib, ie) = self.range(imax, self.nprocs_, irecv)
         rnb0 = ib*(jmax-jmin+1)*(kmax-kmin+1)
         nrslice = ie - ib + 1
-        rdata   = rdata.reshape(self.gn_[0]*self.gn_[1],self.nxmax_)
+        rdata   = rdata.reshape(nens, self.gn_[0]*self.gn_[1], self.nxmax_)
         if self.debug_:
           print(self.myrank_, ": do_thresh: rdata.shape=",rdata.shape)
           sys.stdout.flush()
@@ -280,20 +287,21 @@ class BTools:
         # print(self.myrank_, ": do_thresh: ldata=",ldata)
           print(self.myrank_, ": do_thresh: ldata.shape=",ldata.shape, " nlslice=", nlslice)
           sys.stdout.flush()
-        ldata   = ldata.reshape(self.gn_[0]*self.gn_[1], nlslice)
+        ldata   = ldata.reshape(nens, self.gn_[0]*self.gn_[1], nlslice)
 
     	# Order s.t. we multiply
-	#    Transpose(ldata) X rdata:
+	    #    Transpose(ldata) X rdata:
         # where Transpose(ldata) is a column vector, 
         # and rdata, a row vector in matrix-speak
         n = 0
-        for ii in range(0,nlslice):
-          lslice = ldata[:,ii]
+        for ii in range(0,nlslice):              # loop over l-slices
+          lslice = ldata[:,:,ii]  
+          ldims  = lslice.shape
          #if self.debug_:
          #  print(self.myrank_, ": do_thrersh: lslice[",ii,"]=",lslice)
          #  sys.stdout.flush()
           lnb = (ib+ii)*(jmax-jmin+1)*(kmax-kmin+1)
-          for i in range(0,len(lslice)):
+          for i in range(0,ldims[1]):
      	    # Locate in global grid:
             ig    = int( float(lnb+i)/float(self.gn_[0]*self.gn_[1]) )
             ntmp  = ig*self.gn_[0]*self.gn_[1]
@@ -306,17 +314,27 @@ class BTools:
 #           ig    = lnb + i - jg*self.gn_[2] - ntmp
 
   	    # Compute global matrix index: 	    
-#           Ig    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+###         Ig    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
             Ig    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
-
-            for jj in range(0, nrslice):
-              rslice = rdata[:,jj]
+            CII   = np.mean(lslice[:,i]**2)     # variance=average over ensembles
+#           if i%10 == 0:
+#             print(self.myrank_, ": do_thrersh: lslice[",i,"]=",lslice[:,i])
+            sys.stdout.flush()
+            for jj in range(0, nrslice):         # loop over r-slices
+              rslice = rdata[:,:,jj]
+              rdims  = rslice.shape
               rnb = rnb0 + jj*(jmax-jmin+1)*(kmax-kmin+1)
-              for j in range(0,len(rslice)):
-                prod  = lslice[i] * rslice[j]  # covariance
-                denom = lslice[i]*rslice[j]    # correlation coefficient
-                if abs(prod/denom) >= thresh:
-         	  # Locate in global grid:
+              for j in range(0,rdims[1]):
+                CJJ   = np.mean(rslice[:,j]**2)  # variance=average over ensembles
+                vcov  = np.multiply(lslice[:,i], rslice[:,j])
+                                                 # covariance for each ensemble member
+                covar = np.mean(vcov,0)          # covariance
+                ccoef = abs(covar)/math.sqrt(CII*CJJ)  # correlation coefficient
+#               if i%10 == 0:
+#                 print(self.myrank_,": do_thresh: vcov=", vcov)
+#                 print(self.myrank_,": do_thresh: CII=",CII," CJJ=",CJJ, " covar=", covar)
+                if ccoef >= thresh:
+         	      # Locate in global grid:
                   ig    = int( float(rnb+j)/float(self.gn_[0]*self.gn_[1]) )
                   ntmp  = ig*self.gn_[0]*self.gn_[1]
                   jg    = int( float(rnb+j-ntmp)/float(self.gn_[0]) )
@@ -328,10 +346,10 @@ class BTools:
 #                 ig    = rnb + j - jg*self.gn_[2] - ntmp
            
     	          # Compute global matrix indices: 	    
-#                 Jg    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
+###               Jg    = kg + jg*self.gn_[0] + ig*self.gn_[0]*self.gn_[1]
                   Jg    = ig + jg*self.gn_[2] + kg*self.gn_[1]*self.gn_[2]
 
-                  B[n] = prod
+                  B[n] = covar
                   I[n] = int(Ig)
                   J[n] = int(Jg)
            
@@ -358,9 +376,10 @@ class BTools:
     #                         4: raw (no subtracted mean)
     #          decimate    : integer, shorten the slab by decimate (0 is no decimate).
     #                        So, if you decimate by 4, you keep every 4th data point
-    # ReturnsL N: numpy array, data for a particular mpiRank of 
-    #             size (Nx_p, Ny, Nz), where Nx_p is are the number x-planes
-    #             corresponding to mpiRank.
+    # ReturnsL N    : numpy array, data for a particular mpiRank of 
+    #                 size (Nx_p, Ny, Nz), where Nx_p is are the number
+    #                 x-planes corresponding to mpiRank.
+    #          nens : number of ensemble members
     #          gdims: dims of original grid
     ################################################################
     @staticmethod
@@ -384,6 +403,8 @@ class BTools:
         if (type(fileName) is not str):
             sys.exit("Error, bad fileName type in Btools_getSlabData!")
 
+        nz = 1
+
         # 
         # Open the netCDF file, what is read depends on means.
         #
@@ -406,62 +427,69 @@ class BTools:
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
               sys.exit("Error, ensemble should have five dimensions!")
-           iensembles,ntimes,iz,iy,ix = N.shape
+           nensembles,ntimes,iz,iy,ix = N.shape
            Nsum = np.zeros([1,iy,ix],dtype=np.float32)
-           for i in range(0,iensembles):
+           for i in range(0,nensembles):
               Nsum = Nsum + N[i,itime,1,:,:]
-           N = np.true_divide(Nsum,iensembles+1)
-           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
+           N = np.true_divide(Nsum,nensembles+1)
+           iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
            gdims = N.shape
            N = N[0,:,iLstart:(iLend+1)]
         elif means == 2:  # Subtract the ensemble mean.
-           N = nc.variables[ensembleName]
-           if len(N.shape) != 5:
+           NN = nc.variables[ensembleName]
+           N = []
+           if len(NN.shape) != 5:
               sys.exit("Error, ensemble should have five dimensions!")
-           iensembles,ntimes,iz,iy,ix = N.shape
-           mean = np.mean(N[0,0,0,:,:])
+           nensembles,ntimes,iz,iy,ix = NN.shape
+           N = NN[:,0,0:nz,:,:]
+           mean = np.mean(N, 0)
            gdims = mean.shape
-           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
-           N = N[0,0,0,:,iLstart:(iLend+1)] - mean
-        elif means == 3:
-           N = nc.variables[ensembleName]
-           if len(N.shape) != 5:
-              sys.exit("Error, ensemble should have five dimensions!")
-           iensembles,ntimes,iz,iy,ix = N.shape
-           Nsum = np.zeros([1,iy,ix],dtype=np.float32)
-           for i in range(0,iensembles):
-              Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
-           N = np.true_divide(Nsum,iensembles)
-           gdims = N.shape
-           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
-           print(mpiRank, ": getDataSlice: iLstart=", iLstart, " iLend=", iLend)
-           N = N[0,:,iLstart:(iLend+1)]
+           print(mpiRank, ": getSlabData: mean.shape=", mean.shape, " N.shape_0=", N.shape)
+           for i in range(0,nensembles):
+             N[i,:,:,:] -= mean
+           iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
+           N = N[:,:,:,iLstart:(iLend+1)]
+           print(mpiRank, ": getSlabData: iLstart, iLend=", iLstart, " ", iLend, " N.shape_1=", N.shape)
+             
+#       elif means == 3:
+#          N = nc.variables[ensembleName]
+#          if len(N.shape) != 5:
+#             sys.exit("Error, ensemble should have five dimensions!")
+#          nensembles,ntimes,iz,iy,ix = N.shape
+#          Nsum = np.zeros([1,iy,ix],dtype=np.float32)
+#          for i in range(0,nensembles):
+#             Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
+#          N = np.true_divide(Nsum,nensembles)
+#          gdims = N.shape
+#          iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
+#          print(mpiRank, ": getDataSlice: iLstart=", iLstart, " iLend=", iLend)
+#          N = N[0,:,iLstart:(iLend+1)]
         elif means == 4:
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
               sys.exit("Error, ensemble should have five dimensions!")
-           iensembles,ntimes,iz,iy,ix = N.shape
-           iLstart,iLend = BTools.range(ix,mpiTasks, mpiRank)
+           nensembles,ntimes,iz,iy,ix = N.shape
+           iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
            N = N[0,0,0,:,iLstart:(iLend+1)]
            gdims = ([1,iy,ix])
         else:
            sys.exit("Error, bad mean value!")
  
         if decimate > 1:
-           print (mpiRank,": getSlabData: N shape=",N.shape)
+           print (mpiRank,": getSlabData: N.shape_2=",N.shape)
            sys.stdout.flush()
-           N = N[::decimate,::decimate]
-           gdims = ([gdims[0]/decimate+1,gdims[1]/decimate+1, gdims[2]/decimate+1])
+           N = N[:,:,::decimate,::decimate]
+           gdims = ([gdims[0], gdims[1]/decimate+1, gdims[2]/decimate+1])
  
 
         nc.close
-        print (mpiRank,": getSlabData: N shape_final=",N.shape)
+        print (mpiRank,": getSlabData: N.shape_final=",N.shape, " nensembles=", nensembles)
         sys.stdout.flush()
         if len(gdims) == 2:
           gdims = ([1, gdims[0], gdims[1]])
         gdims = ([int(gdims[0]),int(gdims[1]),int(gdims[2]) ])
 
-        return N, gdims  # end, getSlabData netghid
+        return N, nensembles, gdims  # end, getSlabData netghid
 
 
 
@@ -478,8 +506,6 @@ class BTools:
     ################################################################
     @staticmethod
     def writeResults(xB,xI,xJ,filename,mpiRank, mode='w', clobber_only=False):
-
-      # print(filename,mpiRank)
 
       # Do clobber_only:
       if clobber_only:

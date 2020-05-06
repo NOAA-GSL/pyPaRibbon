@@ -13,6 +13,8 @@ import time
 import btools
 
 
+filepref = "ljunk"
+
 # Get world size and rank:
 comm     = MPI.COMM_WORLD
 mpiTasks = MPI.COMM_WORLD.Get_size()
@@ -52,7 +54,7 @@ N = np.asarray(N, order='C')
 x=N.flatten()
 
 t0 = time.time()
-lcount=BTools.buildB(x, threshold, B, I, J)#, filename="ljunk") 
+lcount=BTools.buildB(x, threshold, B, I, J, filename=filepref) 
 t1 = time.time()
   
 #print (mpiRank, ": len(B)=",len(B))
@@ -71,5 +73,5 @@ comm.barrier()
 if mpiRank == 0:
   print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
   print(mpiRank, ": main: number entries found: ", gcount)
-  print(mpiRank, ": main: data written to file: ", "ljunk.")
+  print(mpiRank, ": main: data written to file: ", filepref)
   print(mpiRank, ": main: execution time      : ", gdt)

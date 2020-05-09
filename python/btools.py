@@ -420,8 +420,8 @@ class BTools:
         #
         #    1: <T(x,y,x)> = Sum ens T(ens,x,y,z)/num ensembles
         #    2: T(ens,x,y,z) - <T(x,y,z)>
-        #    4: raw (no subtracted mean)
- 
+        #    3: raw (no subtracted mean)
+
         if means == 1: # T(x,y,x) >= Sum ens T(ens,x,y,z)/num ensembles
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
@@ -435,34 +435,17 @@ class BTools:
            gdims = N.shape
            N = N[0,:,iLstart:(iLend+1)]
         elif means == 2:  # Subtract the ensemble mean.
-           NN = nc.variables[ensembleName]
-           N = []
-           if len(NN.shape) != 5:
+           N = nc.variables[ensembleName]
+           if len(N.shape) != 5:
               sys.exit("Error, ensemble should have five dimensions!")
-           nensembles,ntimes,iz,iy,ix = NN.shape
-           N = NN[:,0,0:nz,:,:]
+           nensembles,ntimes,iz,iy,ix = N.shape
+           N = N[:,0,0:nz,:,:]
            mean = np.mean(N, 0)
            gdims = mean.shape
-           print(mpiRank, ": getSlabData: mean.shape=", mean.shape, " N.shape_0=", N.shape)
            for i in range(0,nensembles):
-             N[i,:,:,:] -= mean
+              N[i,:,:,:] -= mean
            iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
            N = N[:,:,:,iLstart:(iLend+1)]
-           print(mpiRank, ": getSlabData: iLstart, iLend=", iLstart, " ", iLend, " N.shape_1=", N.shape)
-             
-#       elif means == 3:
-#          N = nc.variables[ensembleName]
-#          if len(N.shape) != 5:
-#             sys.exit("Error, ensemble should have five dimensions!")
-#          nensembles,ntimes,iz,iy,ix = N.shape
-#          Nsum = np.zeros([1,iy,ix],dtype=np.float32)
-#          for i in range(0,nensembles):
-#             Nsum = Nsum + (N[i,itime,1,:,:] - np.mean(N[i,itime,1,:,:]))
-#          N = np.true_divide(Nsum,nensembles)
-#          gdims = N.shape
-#          iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
-#          print(mpiRank, ": getDataSlice: iLstart=", iLstart, " iLend=", iLend)
-#          N = N[0,:,iLstart:(iLend+1)]
         elif means == 3:
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
@@ -479,7 +462,6 @@ class BTools:
            sys.stdout.flush()
            N = N[:,:,::decimate,::decimate]
            gdims = ([gdims[0], gdims[1]/decimate+1, gdims[2]/decimate+1])
- 
 
         nc.close
         print (mpiRank,": getSlabData: N.shape_final=",N.shape, " nensembles=", nensembles)
@@ -489,7 +471,6 @@ class BTools:
         gdims = ([int(gdims[0]),int(gdims[1]),int(gdims[2]) ])
 
         return N, nensembles, gdims  # end, getSlabData netghid
-
 
 
     ################################################################

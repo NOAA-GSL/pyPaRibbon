@@ -9,6 +9,7 @@ import numpy as np
 import array
 import math
 import sys
+import os
 
 
 class BTools:
@@ -220,7 +221,7 @@ class BTools:
               J.extend(self.Jp_[0:n])
             else:
               self.writeResults(self.Bp_[0:n], self.Ip_[0:n], self.Jp_[0:n], \
-                                filename, self.myrank_, mode='a') 
+                                filename, self.myrank_, mode='w') 
 
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: partition thresholding done.")
@@ -489,11 +490,12 @@ class BTools:
 
       # Do clobber_only:
       if clobber_only:
-        ncout = Dataset(filename + "." + str(mpiRank) + ".ncl", 'w', \
-                        formt='NETCDF4', clobber=True)
-        ncout.close()
-        return
-      
+         try:
+            os.remove(filename + "." + str(mpiRank) + ".nc")
+            return
+         except OSError:
+            pass
+            return
 
       #
       # Check the inputs.
@@ -503,11 +505,11 @@ class BTools:
       if xI.size != xJ.size:
          sys.exit("Error, bad size in writeResults!")
       if mpiRank < 0:
-         sys.exit("Error, bad rank in WriteREsults!")   
+         sys.exit("Error, bad rank in writeResults!")   
 
 
       # Open the netCDF4 file.
-      ncout = Dataset(filename+"." + str(mpiRank) + ".ncl", mode, formt='NETCDF4')
+      ncout = Dataset(filename + "." + str(mpiRank) + ".nc", mode, formt='NETCDF4')
 
       # Define a dimension for B,I,J.
       nResults = xB.size

@@ -36,20 +36,18 @@ if mpiRank == 0:
 #
 BTools = btools.BTools(comm, MPI.FLOAT, nens, gdims, False)
 
-#
-# Build the distributed B matrix.
-#
-B          = []
-I          = []
-J          = []
 threshold  = 0.8
 N = np.asarray(N, order='C')
 x=N.flatten()
 
+# Here's where the work is done!
 t0 = time.time()
-lcount=BTools.buildB(x, threshold, B, I, J, filename="ljunk") 
+lcount,B,I,J=BTools.buildB(x, threshold) 
 t1 = time.time()
-  
+ 
+# Write out the results.
+BTools.writeResults(B, I, J, "Bmatrix", mpiRank)
+ 
 comm.barrier()
 gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
 

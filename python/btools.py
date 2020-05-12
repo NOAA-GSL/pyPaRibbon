@@ -163,30 +163,25 @@ class BTools:
     #               
     #  Args  : ldata   : this task's (local)_ data
     #          cthresh : corr coeff threshold
+    # Returns: number entries meeting thrershold criterion
     #          B       : array of covariances whose corr. coeffs exceed cthresh
     #          I, J    : arrays of indices into global B mat
     #		             where cov > thresh. Each is of the same length
-    #          filename: if set, then, B, I, J won't be set or extended
-    #                    here, but, rather the results will be put
-    #                    to specified file
-    # Returns: number entries meeting thrershold criterion
     ################################################################
-    def buildB(self, ldata, cthresh, B, I, J, filename=None):
-	
+    def buildB(self, ldata, cthresh):
+
+        #
+        # Build the distributed B matrix.
+        #
+        B = np.array([])
+        I = np.array([])
+        J = np.array([])
+ 	
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: starting...")
           sys.stdout.flush()
 
-        # Truncate specified file:
-        if filename != None:
-          self.writeResults(self.Bp_, self.Ip_, self.Jp_, \
-                            filename, self.myrank_, clobber_only=True) 
-          
-
 	# Gather all slabs here to perform thresholding:
-     
-        sys.stdout.flush()
-        
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: ldata.shape=",ldata.shape, " recvbuff.shape=", self.recvbuff_.shape)
           sys.stdout.flush()
@@ -214,21 +209,16 @@ class BTools:
               sys.stdout.flush()
 
             ntot += n
-            if filename == None:
-              # Append new global indices to return arrays:
-              B.extend(self.Bp_[0:n])
-              I.extend(self.Ip_[0:n])
-              J.extend(self.Jp_[0:n])
-            else:
-              self.writeResults(self.Bp_[0:n], self.Ip_[0:n], self.Jp_[0:n], \
-                                filename, self.myrank_, mode='w') 
+            # Concatenate new global indices to return arrays:
+            B = np.concatenate([B,self.Bp_[0:n]])
+            I = np.concatenate([I,self.Ip_[0:n]])
+            J = np.concatenate([J,self.Jp_[0:n]])
 
         if self.debug_:
           print(self.myrank_, ": BTools::buildB: partition thresholding done.")
           sys.stdout.flush()
 
-
-        return ntot  # end, buildB method
+        return ntot,B,I,J  # end, buildB method
 	
 
     ####################################################
@@ -481,21 +471,10 @@ class BTools:
     #          B, I, J     : B-matrix entries, and I,J locations in matrix
     #          fileName    : string, filename of the netCDF file to open
     #          mpiRank     : MPI task id
-    #          mode        : open mode ('w', 'a')
-    #          clobber_only: if True, simply truncate contents, and return
     # Returns: none.
     ################################################################
     @staticmethod
-    def writeResults(xB,xI,xJ,filename,mpiRank, mode='w', clobber_only=False):
-
-      # Do clobber_only:
-      if clobber_only:
-         try:
-            os.remove(filename + "." + str(mpiRank) + ".nc")
-            return
-         except OSError:
-            pass
-            return
+    def writeResults(xB,xI,xJ,filename,mpiRank):
 
       #
       # Check the inputs.
@@ -509,12 +488,13 @@ class BTools:
 
 
       # Open the netCDF4 file.
-      ncout = Dataset(filename + "." + str(mpiRank) + ".nc", mode, formt='NETCDF4')
-
+      filename = filename + "." + str(mpiRank) + ".nc"
+      ncout = Dataset(filename, 'w', formt='NETCDF4')
+      
       # Define a dimension for B,I,J.
       nResults = xB.size
       ncout.createDimension('nResults',None)
-
+      
       # Create variables: B,I,J in the file.
       B = ncout.createVariable('B', np.dtype('double').char, ('nResults'))
       I = ncout.createVariable('I', np.dtype('int').char, ('nResults'))

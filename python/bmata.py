@@ -34,7 +34,8 @@ if mpiRank == 0:
 #
 # Instantiate the BTools class before building B:
 #
-BTools = btools.BTools(comm, MPI.FLOAT, nens, gdims, False)
+prdebug = False
+BTools = btools.BTools(comm, MPI.FLOAT, nens, gdims, prdebug)
 
 threshold  = 0.8
 N = np.asarray(N, order='C')
@@ -42,11 +43,12 @@ x=N.flatten()
 
 # Here's where the work is done!
 t0 = time.time()
-lcount,B,I,J=BTools.buildB(x, threshold) 
+lcount,B,I,J = BTools.buildB(x, threshold) 
 t1 = time.time()
  
 # Write out the results.
-BTools.writeResults(B, I, J, "Bmatrix", mpiRank)
+sprefix = "Bmatrix"
+BTools.writeResults(B, I, J, sprefix, mpiRank)
  
 comm.barrier()
 gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
@@ -58,5 +60,5 @@ comm.barrier()
 if mpiRank == 0:
   print(mpiRank, ": main: max number entries  : ", (np.prod(gdims))**2)
   print(mpiRank, ": main: number entries found: ", gcount)
-  print(mpiRank, ": main: data written to file: ", "ljunk.")
+  print(mpiRank, ": main: data written to file: ", sprefix)
   print(mpiRank, ": main: execution time      : ", gdt)

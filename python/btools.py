@@ -378,8 +378,6 @@ class BTools:
         # N = Btools_getSlabData(fileName, ensembleName, itime, mpiTask, mpiRank, means, decimate)
         # N is a slab of data (x,y,z) 
         #
-
-        #
         # Check the inputs.
         #
         if mpiRank <0 or mpiRank>(mpiTasks-1):
@@ -453,6 +451,8 @@ class BTools:
            sys.stdout.flush()
            N = N[:,:,::decimate,::decimate]
            gdims = ([gdims[0], gdims[1]/decimate+1, gdims[2]/decimate+1])
+#          N = N[0:nensembles,:,:,::decimate]
+#          gdims = ([gdims[0], gdims[1], gdims[2]/decimate+1])
 
         nc.close
         print (mpiRank,": getSlabData: N.shape_final=",N.shape, " nensembles=", nensembles)

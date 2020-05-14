@@ -12,12 +12,12 @@ from   netCDF4 import Dataset
 import time
 import btools
 
-
-filename   = "Tmerged10.nc"
-varname    = "T"
-threshold  = 0.95
-decfact    = 2
-soutprefix = "Bmatrix"
+# User specifiable data:
+filename   = "Tmerged10.nc" # input file
+varname    = "T"            # input file variable name
+threshold  = 0.95           # correl. coeff thrreshold
+decfact    = 2              # 'decimation factor' in each direction
+soutprefix = "Bmatrix"      # B matrix output prefix
 
 # Get world size and rank:
 comm     = MPI.COMM_WORLD
@@ -66,14 +66,14 @@ B = B[isort]
 I = I[isort]
 J = J[isort]
 
-# Find unique row indices:
+# Next, find unique row indices:
 iu, iunique = np.unique(I, return_index=True)
 iu, counts  = np.unique(I, return_counts=True)  
 print(mpiRank,": main: len(counts)=",len(counts))
 sys.stdout.flush()
 iu = None
 
-# For each unique row, find J's and take max(J) - min(J):
+# Then, for each unique row, find J's and take max(J) - min(J):
 ix = np.zeros(np.prod(gdims), dtype=np.int)
 Jchk = np.zeros(counts.max(), dtype=np.int)
 for j in range(0,len(iunique)):
@@ -87,7 +87,7 @@ for j in range(0,len(iunique)):
   ind     = int(I[iunique[j]])
   ix[ind] = int(nmax)
 
-# Find sum of max width in each row:
+# Find sum of 'local' width in each row:
 print(mpiRank, ": main: Doing global ribbon vector...; ix=", ix)
 sys.stdout.flush()
 gx  = comm.allreduce(ix, op=MPI.SUM) # Sum of widths over tasks

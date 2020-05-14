@@ -107,7 +107,7 @@ class BTools:
         if i2 > myrank: 
            ie = ie + 1
 	
-        return ib-1, ie-1  # end, range method
+        return int(ib-1), int(ie-1)  # end, range method
 	
 
     ################################################################
@@ -274,10 +274,10 @@ class BTools:
         (ib, ie) = self.range(imax, self.nprocs_, self.myrank_)
         lnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
         nlslice = ie - ib + 1
-        if self.debug_:
+      # if self.debug_:
         # print(self.myrank_, ": do_thresh: ldata=",ldata)
-          print(self.myrank_, ": do_thresh: ldata.shape=",ldata.shape, " nlslice=", nlslice)
-          sys.stdout.flush()
+        print(self.myrank_, ": do_thresh: ldata.shape=",ldata.shape, " nlslice=", nlslice)
+        sys.stdout.flush()
         ldata   = ldata.reshape(nens, self.gn_[0]*self.gn_[1], nlslice)
 
     	# Order s.t. we multiply
@@ -363,7 +363,6 @@ class BTools:
     #          means       : integer, 1,2,3 where:
     #                         1: <T(x,y,x)> = Sum ens T(ens,x,y,z)/num ensembles
     #                         2: T(ens,x,y,z) - <T(x,y,z)>
-    #                         3: < T(ens,x,y,z) - <T(x,y,z)> >
     #                         4: raw (no subtracted mean)
     #          decimate    : integer, shorten the slab by decimate (0 is no decimate).
     #                        So, if you decimate by 4, you keep every 4th data point
@@ -391,6 +390,10 @@ class BTools:
 
         if (type(fileName) is not str):
             sys.exit("Error, bad fileName type in Btools_getSlabData!")
+
+        decimate = int(decimate)
+        if decimate < 0:
+          decimate = 1
 
         nz = 1
 
@@ -420,9 +423,6 @@ class BTools:
            for i in range(0,nensembles):
               Nsum = Nsum + N[i,itime,1,:,:]
            N = np.true_divide(Nsum,nensembles+1)
-           iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
-           gdims = N.shape
-           N = N[0,:,iLstart:(iLend+1)]
         elif means == 2:  # Subtract the ensemble mean.
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
@@ -430,11 +430,8 @@ class BTools:
            nensembles,ntimes,iz,iy,ix = N.shape
            N = N[:,0,0:nz,:,:]
            mean = np.mean(N, 0)
-           gdims = mean.shape
-           for i in range(0,nensembles):
+           for i in range(0,nensembles): # subtract mean from each ens. member
               N[i,:,:,:] -= mean
-           iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
-           N = N[:,:,:,iLstart:(iLend+1)]
         elif means == 3:
            N = nc.variables[ensembleName]
            if len(N.shape) != 5:
@@ -442,17 +439,22 @@ class BTools:
            nensembles,ntimes,iz,iy,ix = N.shape
            iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
            N = N[0,0,0,:,iLstart:(iLend+1)]
-           gdims = ([1,iy,ix])
         else:
-           sys.exit("Error, bad mean value!")
+           sys.exit("Error, bad mean spec!")
  
+#       if decimate > 1:
+#          print (mpiRank,": getSlabData: N.shape_2=",N.shape)
+#          sys.stdout.flush()
+#          gdims = ([gdims[0], gdims[1]/decimate+1, (gdims[2]/decimate + 0.5)+1])
+#          gdims = ([gdims[0], N.shape[2], N.shape[3]])
+#          N = N[:,:,::decimate,::decimate]
+
         if decimate > 1:
-           print (mpiRank,": getSlabData: N.shape_2=",N.shape)
-           sys.stdout.flush()
            N = N[:,:,::decimate,::decimate]
-           gdims = ([gdims[0], gdims[1]/decimate+1, gdims[2]/decimate+1])
-#          N = N[0:nensembles,:,:,::decimate]
-#          gdims = ([gdims[0], gdims[1], gdims[2]/decimate+1])
+#       gdims = ([nz, int(iy/decimate+1), int(ix/decimate)+1])
+        gdims = ([ N.shape[1], N.shape[2], N.shape[3] ])
+        iLstart,iLend = BTools.range(gdims[2], mpiTasks, mpiRank)
+        N = N[:,:,:,iLstart:(iLend+1)]
 
         nc.close
         print (mpiRank,": getSlabData: N.shape_final=",N.shape, " nensembles=", nensembles)

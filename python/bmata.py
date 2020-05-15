@@ -16,7 +16,7 @@ import btools
 filename   = "Tmerged17.nc" # input file
 varname    = "T"            # input file variable name
 threshold  = 0.95           # correl. coeff thrreshold
-decfact    = 1              # 'decimation factor' in x, y directions
+decfact    = 4              # 'decimation factor' in x, y directions
 soutprefix = "Bmatrix"      # B matrix output prefix
 
 # Get world size and rank:
@@ -122,6 +122,11 @@ ribbonWidth = gJmax.max()
 irowmax = np.argmax(gJmax)
 #print(mpiRank, ": main: Global ribbon max done.")
 #sys.stdout.flush()
+
+# Write width distribution to a file:
+gJmax[gJmax < 0[] = 0
+wfilename = soutprefix + "." + "width" + "." + str(threshold) + "." + str(decfact) + ".txt"
+np.savetxt(wfilename, gJmax, delimiter="\n")
 
 
 # Compute total run time:

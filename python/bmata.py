@@ -13,10 +13,10 @@ import time
 import btools
 
 # User specifiable data:
-filename   = "Tmerged10.nc" # input file
+filename   = "Tmerged17.nc" # input file
 varname    = "T"            # input file variable name
 threshold  = 0.95           # correl. coeff thrreshold
-decfact    = 4              # 'decimation factor' in x, y directions
+decfact    = 8              # 'decimation factor' in x, y directions
 soutprefix = "Bmatrix"      # B matrix output prefix
 
 # Get world size and rank:
@@ -62,37 +62,65 @@ B = B[isort]
 I = I[isort]
 J = J[isort]
 
+if mpiRank == 0:
+  print(mpiRank, ": main: sort(I)=", I)
+  print(mpiRank, ": main: sort(J)=", J)
+
 # Next, find unique row indices:
 iu, iunique = np.unique(I, return_index=True)
-iu, counts  = np.unique(J, return_counts=True)  
+iu, counts  = np.unique(I, return_counts=True)  
 print(mpiRank,": main: len(counts)=",len(counts))
 sys.stdout.flush()
 iu = None
 
 # Then, for each unique row, find J's and find 
 # 'local' ribbon width by taking max(J) - min(J):
-ix = np.zeros(np.prod(gdims), dtype=np.int)
-jmax = -1
-jmin = sys.maxsize * 2      #J.max(axis=0) + 1
-for j in range(0,len(iunique)):
-  for i in range(0,int(counts[j])):
+#ilen  = np.zeros(np.prod(gdims), dtype='i')
+Jmax  = np.zeros(np.prod(gdims), dtype='i') #np.int)
+Jmin  = np.zeros(np.prod(gdims), dtype='i') #np.int)
+
+IMAX  = np.prod(gdims)+10
+Jmax.fill(-1)
+Jmin.fill(IMAX)
+for i in range(0,len(iunique)):
+  jjmax = -1
+  jjmin = IMAX
+  for j in range(0,int(counts[i])):
 #   print(mpiRank,": main: iunique=",iunique[j], " iunique+i=",iunique[j]+i," len((J)=",len(J))
 #   sys.stdout.flush()
-    Jchk  = J[iunique[j]+i]
-    jmax  = max(jmax, Jchk)
-    jmin  = min(jmin, Jchk)
+    Jchk   = J[iunique[i]+j]
+    jjmax  = max(jjmax, Jchk)
+    jjmin  = min(jjmin, Jchk)
 
-  lwidth  = jmax - jmin + 1
-  ind     = int(I[iunique[j]])
-  ix[ind] = int(lwidth)
+# lwidth    = jjmax - jjmin + 1
+  ind       = int(I[iunique[i]])
+  Jmax[ind] = jjmax
+  Jmin[ind] = jjmin
+# ilen[ind] = int(lwidth)
 
 # Find sum of 'local' widths in each row:
-print(mpiRank, ": main: Doing global ribbon vector...; ix=", ix)
+#print(mpiRank, ": main: Doing global ribbon vector...; ix=", ix)
+#sys.stdout.flush()
+#glen  = np.zeros(np.prod(gdims), dtype='i')
+#comm.Allreduce(ilen, glen, op=MPI.SUM) # Sum of widths over tasks
+
+print(mpiRank, ": main: Jmax=", Jmax[0:100])
+print(mpiRank, ": main: Jmin=", Jmin[0:100])
 sys.stdout.flush()
-gx  = comm.allreduce(ix, op=MPI.SUM) # Sum of widths over tasks
-ribbonWidth = gx.max()
-print(mpiRank, ": main: Global ribbon max done.")
-sys.stdout.flush()
+
+
+gJmax = np.zeros(np.prod(gdims), dtype='i') #np.int)
+comm.Allreduce(Jmax, gJmax, op=MPI.MAX) # Sum of widths over tasks
+Jmax = None
+gJmin = np.zeros(np.prod(gdims), dtype='i') #np.int)
+comm.Allreduce(Jmin, gJmin, op=MPI.MIN) # Sum of widths over tasks
+Jmin = None
+
+gJmax -= gJmin
+ribbonWidth = gJmax.max()
+irowmax = np.argmax(gJmax)
+#print(mpiRank, ": main: Global ribbon max done.")
+#sys.stdout.flush()
 
 
 # Compute total run time:
@@ -104,6 +132,7 @@ if mpiRank == 0:
   print(mpiRank, ": main: max number entries ...... : ", (np.prod(gdims))**2)
   print(mpiRank, ": main: number entries > threshold: ", gcount)
   print(mpiRank, ": main: data written to file......: ", soutprefix)
+  print(mpiRank, ": main: max ribbon width..........: ", np.prod(gdims))
   print(mpiRank, ": main: ribbon width..............: ", ribbonWidth)
-
+  print(mpiRank, ": main: row of ribbon width.......: ", irowmax)
   print(mpiRank, ": main: execution time............: ", gdt)

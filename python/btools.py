@@ -274,10 +274,10 @@ class BTools:
         (ib, ie) = self.range(imax, self.nprocs_, self.myrank_)
         lnb = ib*(jmax-jmin+1)*(kmax-kmin+1)
         nlslice = ie - ib + 1
-      # if self.debug_:
+        if self.debug_:
         # print(self.myrank_, ": do_thresh: ldata=",ldata)
-        print(self.myrank_, ": do_thresh: ldata.shape=",ldata.shape, " nlslice=", nlslice)
-        sys.stdout.flush()
+          print(self.myrank_, ": do_thresh: ldata.shape=",ldata.shape, " nlslice=", nlslice)
+          sys.stdout.flush()
         ldata   = ldata.reshape(nens, self.gn_[0]*self.gn_[1], nlslice)
 
     	# Order s.t. we multiply
@@ -442,13 +442,6 @@ class BTools:
         else:
            sys.exit("Error, bad mean spec!")
  
-#       if decimate > 1:
-#          print (mpiRank,": getSlabData: N.shape_2=",N.shape)
-#          sys.stdout.flush()
-#          gdims = ([gdims[0], gdims[1]/decimate+1, (gdims[2]/decimate + 0.5)+1])
-#          gdims = ([gdims[0], N.shape[2], N.shape[3]])
-#          N = N[:,:,::decimate,::decimate]
-
         if decimate > 1:
            N = N[:,:,::decimate,::decimate]
 #       gdims = ([nz, int(iy/decimate+1), int(ix/decimate)+1])
@@ -457,8 +450,8 @@ class BTools:
         N = N[:,:,:,iLstart:(iLend+1)]
 
         nc.close
-        print (mpiRank,": getSlabData: N.shape_final=",N.shape, " nensembles=", nensembles)
-        sys.stdout.flush()
+#       print (mpiRank,": getSlabData: N.shape_final=",N.shape, " nensembles=", nensembles)
+#       sys.stdout.flush()
         if len(gdims) == 2:
           gdims = ([1, gdims[0], gdims[1]])
         gdims = ([int(gdims[0]),int(gdims[1]),int(gdims[2]) ])

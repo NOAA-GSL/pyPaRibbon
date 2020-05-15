@@ -444,7 +444,6 @@ class BTools:
  
         if decimate > 1:
            N = N[:,:,::decimate,::decimate]
-#       gdims = ([nz, int(iy/decimate+1), int(ix/decimate)+1])
         gdims = ([ N.shape[1], N.shape[2], N.shape[3] ])
         iLstart,iLend = BTools.range(gdims[2], mpiTasks, mpiRank)
         N = N[:,:,:,iLstart:(iLend+1)]

@@ -16,7 +16,7 @@ import btools
 filename   = "Tmerged17.nc" # input file
 varname    = "T"            # input file variable name
 threshold  = 0.95           # correl. coeff thrreshold
-decfact    = 8              # 'decimation factor' in x, y directions
+decfact    = 1              # 'decimation factor' in x, y directions
 soutprefix = "Bmatrix"      # B matrix output prefix
 
 # Get world size and rank:
@@ -116,6 +116,7 @@ gJmin = np.zeros(np.prod(gdims), dtype='i') #np.int)
 comm.Allreduce(Jmin, gJmin, op=MPI.MIN) # Sum of widths over tasks
 Jmin = None
 
+# Compute ribbon width for each row of B-matrix:
 gJmax -= gJmin
 ribbonWidth = gJmax.max()
 irowmax = np.argmax(gJmax)

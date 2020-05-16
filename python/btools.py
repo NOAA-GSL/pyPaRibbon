@@ -437,8 +437,6 @@ class BTools:
            if len(N.shape) != 5:
               sys.exit("Error, ensemble should have five dimensions!")
            nensembles,ntimes,iz,iy,ix = N.shape
-           iLstart,iLend = BTools.range(ix, mpiTasks, mpiRank)
-           N = N[0,0,0,:,iLstart:(iLend+1)]
         else:
            sys.exit("Error, bad mean spec!")
  

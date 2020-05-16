@@ -6,6 +6,7 @@
 # Date:   April 2020                                                   #
 ########################################################################
 import os, sys
+import math
 import numpy as np
 from   mpi4py import MPI
 from   netCDF4 import Dataset
@@ -128,8 +129,14 @@ if gJmin.min() < 0:
 
 # Compute ribbon width for each row of B-matrix:
 gJmax -= gJmin
-ribbonWidth = gJmax.max()
-irowmax = np.argmax(gJmax)
+maxWidth  = gJmax.max()
+irowmax   = np.argmax(gJmax)
+Wkeep     = gJmax[gJmax > 0]
+avgWidth  = np.sum(Wkeep) / len(Wkeep) # avg over all samples
+stdWidth  = math.sqrt(np.sum((Wkeep-avgWidth)*(Wkeep-avgWidth)) / len(Wkeep))
+Wkeep     = Wkeep[Wkeep < (avgWidth+2*stdWidth)]
+avgWidth1 = np.sum(Wkeep) / len(Wkeep) # avg rremoving outliers
+
 #print(mpiRank, ": main: Global ribbon max done.")
 #sys.stdout.flush()
 
@@ -148,26 +155,30 @@ comm.barrier()
 if mpiRank == 0:
   sfilename = soutprefix + "." + "summary" + "." + str(threshold) + "." + str(decfact) + ".txt"
   f = open(sfilename,'w')
-  f.write("main: input file............... : %s\n"% filename)
-  f.write("main: input variable........... : %s\n"% varname)
-  f.write("main: max number entries ...... : %d\n"% (np.prod(gdims))**2)
-  f.write("main: decimation factor........ : %d\n"% decfact)
-  f.write("main: corr. coeff. threshold... : %f\n"% threshold)
-  f.write("main: number entries > threshold: %d\n"% gcount)
-  f.write("main: data written to file......: %s\n"% soutprefix)
-  f.write("main: max ribbon width..........: %d\n"% np.prod(gdims))
-  f.write("main: ribbon width..............: %d\n"% ribbonWidth)
-  f.write("main: row of ribbon width.......: %d\n"% irowmax)
-  f.write("main: execution time............: %f\n"% gdt)
+  f.write("main: input file..................: %s\n"% filename)
+  f.write("main: input variable............. : %s\n"% varname)
+  f.write("main: max number entries ........ : %d\n"% (np.prod(gdims))**2)
+  f.write("main: decimation factor.......... : %d\n"% decfact)
+  f.write("main: corr. coeff. threshold..... : %f\n"% threshold)
+  f.write("main: number entries > threshold  : %d\n"% gcount)
+  f.write("main: data written to file........: %s\n"% soutprefix)
+  f.write("main: max possible ribbon width...: %d\n"% np.prod(gdims))
+  f.write("main: max ribbon width............: %d\n"% maxWidth)
+  f.write("main: avg ribbon width............: %d\n"% int(avgWidth+0.5))
+  f.write("main: avg ribbon width no outliers: %d\n"% int(avgWidth1+0.5))
+  f.write("main: row of ribbon width.max.....: %d\n"% irowmax)
+  f.write("main: execution time..............: %f\n"% gdt)
   f.close()
-  print(mpiRank, ": main: input file............... : ", filename)
-  print(mpiRank, ": main: input variable........... : ", varname)
-  print(mpiRank, ": main: max number entries ...... : ", (np.prod(gdims))**2)
-  print(mpiRank, ": main: decimation factor........ : ", decfact)
-  print(mpiRank, ": main: corr. coeff. threshold... : ", threshold)
-  print(mpiRank, ": main: number entries > threshold: ", gcount)
-  print(mpiRank, ": main: data written to file......: ", soutprefix)
-  print(mpiRank, ": main: max ribbon width..........: ", np.prod(gdims))
-  print(mpiRank, ": main: ribbon width..............: ", ribbonWidth)
-  print(mpiRank, ": main: row of ribbon width.......: ", irowmax)
-  print(mpiRank, ": main: execution time............: ", gdt)
+  print(mpiRank, ": main: input file..................: ", filename)
+  print(mpiRank, ": main: input variable..............: ", varname)
+  print(mpiRank, ": main: max number entries .........: ", (np.prod(gdims))**2)
+  print(mpiRank, ": main: decimation factor...........: ", decfact)
+  print(mpiRank, ": main: corr. coeff. threshold......: ", threshold)
+  print(mpiRank, ": main: number entries > threshold..: ", gcount)
+  print(mpiRank, ": main: data written to file........: ", soutprefix)
+  print(mpiRank, ": main: max possible ribbon width...: ", np.prod(gdims))
+  print(mpiRank, ": main: max ribbon width............: ", maxWidth)
+  print(mpiRank, ": main: avg ribbon width............: ", int(avgWidth+0.5))
+  print(mpiRank, ": main: avg ribbon width no outliers: ", int(avgWidth1+0.5))
+  print(mpiRank, ": main: row of ribbon width.max.....: ", irowmax)
+  print(mpiRank, ": main: execution time..............: ", gdt)

@@ -16,7 +16,7 @@ import btools
 filename   = "Tmerged17.nc" # input file
 varname    = "T"            # input file variable name
 threshold  = 0.95           # correl. coeff thrreshold
-decfact    = 2              # 'decimation factor' in x, y directions
+decfact    = 8              # 'decimation factor' in x, y directions
 soutprefix = "Bmatrix"      # B matrix output prefix
 
 # Get world size and rank:
@@ -55,7 +55,7 @@ BTools.writeResults(B, I, J, soutprefix, mpiRank)
 comm.barrier()
 gcount = comm.allreduce(lcount, op=MPI.SUM) # global number of entries
 
-# Compute maximum 'ribbon width':
+# Compute 'ribbon widths':
 # First, sort B, I, J on I:
 isort = np.argsort(I)
 B = B[isort]
@@ -98,6 +98,7 @@ for i in range(0,len(iunique)):
   Jmin[ind] = jjmin
 # ilen[ind] = int(lwidth)
 
+
 # Find sum of 'local' widths in each row:
 #print(mpiRank, ": main: Doing global ribbon vector...; ix=", ix)
 #sys.stdout.flush()
@@ -116,6 +117,15 @@ gJmin = np.zeros(np.prod(gdims), dtype='i') #np.int)
 comm.Allreduce(Jmin, gJmin, op=MPI.MIN) # Sum of widths over tasks
 Jmin = None
 
+if gJmax.max() >= np.prod(gdims): 
+  print(mpiRank, ": main: gJmax.max=", gJmax.max())
+  sys.stdout.flush()
+  sys.exit("Invalid index in gJmax")
+if gJmin.min() < 0: 
+  print(mpiRank, ": main: gJmin.max=", gJmin.max(), " gJmin.min=", gJmin.min())
+  sys.stdout.flush()
+  sys.exit("Invalid index in gJmin")
+
 # Compute ribbon width for each row of B-matrix:
 gJmax -= gJmin
 ribbonWidth = gJmax.max()
@@ -124,7 +134,7 @@ irowmax = np.argmax(gJmax)
 #sys.stdout.flush()
 
 # Write width distribution to a file:
-gJmax[gJmax < 0] = 0
+gJmax[gJmax < 0] = 0 
 wfilename = soutprefix + "." + "width" + "." + str(threshold) + "." + str(decfact) + ".txt"
 np.savetxt(wfilename, gJmax, delimiter="\n")
 
@@ -134,7 +144,18 @@ ldt = time.time() - t0;
 gdt = comm.allreduce(ldt, op=MPI.MAX) # global number of entries
 
 comm.barrier()
+
 if mpiRank == 0:
+  sfilename = soutprefix + "." + "summary" + "." + str(threshold) + "." + str(decfact) + ".txt"
+  f = open(sfilename,'w')
+  f.write("main: max number entries ...... : %d\n"% (np.prod(gdims))**2)
+  f.write("main: number entries > threshold: %d\n"% gcount)
+  f.write("main: data written to file......: %s\n"% soutprefix)
+  f.write("main: max ribbon width..........: %d\n"% np.prod(gdims))
+  f.write("main: ribbon width..............: %d\n"% ribbonWidth)
+  f.write("main: row of ribbon width.......: %d\n"% irowmax)
+  f.write("main: execution time............: %f\n"% gdt)
+  f.close()
   print(mpiRank, ": main: max number entries ...... : ", (np.prod(gdims))**2)
   print(mpiRank, ": main: number entries > threshold: ", gcount)
   print(mpiRank, ": main: data written to file......: ", soutprefix)

@@ -16,7 +16,7 @@ import btools
 filename   = "Tmerged17.nc" # input file
 varname    = "T"            # input file variable name
 threshold  = 0.95           # correl. coeff thrreshold
-decfact    = 1              # 'decimation factor' in x, y directions
+decfact    = 8              # 'decimation factor' in x, y directions
 soutprefix = "Bmatrix"      # B matrix output prefix
 
 # Get world size and rank:
@@ -148,11 +148,11 @@ comm.barrier()
 if mpiRank == 0:
   sfilename = soutprefix + "." + "summary" + "." + str(threshold) + "." + str(decfact) + ".txt"
   f = open(sfilename,'w')
-  f.write("main: input file............... : %s\n"% filename
-  f.write("main: input variable........... : %s\n"% varname
+  f.write("main: input file............... : %s\n"% filename)
+  f.write("main: input variable........... : %s\n"% varname)
   f.write("main: max number entries ...... : %d\n"% (np.prod(gdims))**2)
-  f.write("main: decimation factor........ : %d\n"% decfact
-  f.write("main: corr. coeff. threshold... : %f\n"% threshold
+  f.write("main: decimation factor........ : %d\n"% decfact)
+  f.write("main: corr. coeff. threshold... : %f\n"% threshold)
   f.write("main: number entries > threshold: %d\n"% gcount)
   f.write("main: data written to file......: %s\n"% soutprefix)
   f.write("main: max ribbon width..........: %d\n"% np.prod(gdims))
@@ -160,11 +160,11 @@ if mpiRank == 0:
   f.write("main: row of ribbon width.......: %d\n"% irowmax)
   f.write("main: execution time............: %f\n"% gdt)
   f.close()
-  print(mpiRank, ": main: input file............... : ", filename
-  print(mpiRank, ": main: input variable........... : ", varname
+  print(mpiRank, ": main: input file............... : ", filename)
+  print(mpiRank, ": main: input variable........... : ", varname)
   print(mpiRank, ": main: max number entries ...... : ", (np.prod(gdims))**2)
-  print(mpiRank, ": main: decimation factor........ : ", decfact
-  print(mpiRank, ": main: corr. coeff. threshold... : ", threshold
+  print(mpiRank, ": main: decimation factor........ : ", decfact)
+  print(mpiRank, ": main: corr. coeff. threshold... : ", threshold)
   print(mpiRank, ": main: number entries > threshold: ", gcount)
   print(mpiRank, ": main: data written to file......: ", soutprefix)
   print(mpiRank, ": main: max ribbon width..........: ", np.prod(gdims))

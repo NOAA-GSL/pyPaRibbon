@@ -15,10 +15,11 @@ import btools
 
 # User specifiable data:
 filename   = "Tmerged17.nc" # input file
-varname    = "T"            # input file variable name
+svarname   = "T"            # input file variable name
 threshold  = 0.95           # correl. coeff thrreshold
 decfact    = 8              # 'decimation factor' in x, y directions
 soutprefix = "Bmatrix"      # B matrix output prefix
+nensembles = 0              # no. ensembles to use (0 includes all)
 
 # Get world size and rank:
 comm     = MPI.COMM_WORLD
@@ -29,8 +30,32 @@ name     = MPI.Get_processor_name()
 print("main: tasks=",mpiTasks, " rank=", mpiRank,"machine name=",name)
 sys.stdout.flush()
 
+# Get command line arguments:
+parser = argparse.ArgumentParser()
+parser.add_argument("-infile" , action="store", dest="filename"  ,
+                    type=str  , help='output filename prefix'    , default=filename)
+parser.add_argument("-varname", action="store", dest="svarname"  ,
+                    type=str  , help='ensemble variable name'    , default=svarname
+parser.add_argument("-thres"  , action="store", dest="threshold" ,
+                    type=float, help='corr coeff threshold'      , default=threshold)
+parser.add_argument("-opref"  , action="store", dest="soutprefix",
+                    type=str  , help='output fileprefix'         , default=soutprefix)
+parser.add_argument("-dfact"  , action="store", dest="decfact"   ,
+                    type=int  , help='decimation factor'         , default=decfact)
+#parser.add_argument("-nens"   , action="store", dest="nensembles",
+#                    type=int  , help='number of ensembles to use', default=nensembles)
+args = parser.parse_args()
+
+filename   = args.filename
+threshold  = args.threshold
+soutprefix = args.soutprefix
+svarname   = args.svarname
+decfact    = args.decfact
+#nensembles = args.nensembles
+
+
 # Get the local data:
-(N,nens,gdims) = btools.BTools.getSlabData(filename, varname, 0, mpiTasks, mpiRank, 2, decfact)
+(N,nens,gdims) = btools.BTools.getSlabData(filename, svarname, 0, mpiTasks, mpiRank, 2, decfact)
 if mpiRank == 0:
   print (mpiRank, ": main: constructing BTools, nens   =",nens)
   print (mpiRank, ": main: constructing BTools, gdims  =",gdims)
@@ -156,7 +181,7 @@ if mpiRank == 0:
   sfilename = soutprefix + "." + "summary" + "." + str(threshold) + "." + str(decfact) + ".txt"
   f = open(sfilename,'w')
   f.write("main: input file..................: %s\n"% filename)
-  f.write("main: input variable............. : %s\n"% varname)
+  f.write("main: input variable............. : %s\n"% svarname)
   f.write("main: max number entries ........ : %d\n"% (np.prod(gdims))**2)
   f.write("main: decimation factor.......... : %d\n"% decfact)
   f.write("main: corr. coeff. threshold..... : %f\n"% threshold)
@@ -170,7 +195,7 @@ if mpiRank == 0:
   f.write("main: execution time..............: %f\n"% gdt)
   f.close()
   print(mpiRank, ": main: input file..................: ", filename)
-  print(mpiRank, ": main: input variable..............: ", varname)
+  print(mpiRank, ": main: input variable..............: ", svarname)
   print(mpiRank, ": main: max number entries .........: ", (np.prod(gdims))**2)
   print(mpiRank, ": main: decimation factor...........: ", decfact)
   print(mpiRank, ": main: corr. coeff. threshold......: ", threshold)

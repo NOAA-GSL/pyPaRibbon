@@ -6,6 +6,7 @@
 # Date:   April 2020                                                   #
 ########################################################################
 import os, sys
+import argparse
 import math
 import numpy as np
 from   mpi4py import MPI
@@ -32,17 +33,17 @@ sys.stdout.flush()
 
 # Get command line arguments:
 parser = argparse.ArgumentParser()
-parser.add_argument("-infile" , action="store", dest="filename"  ,
+parser.add_argument("-infile" , action="store", dest="filename"  , \
                     type=str  , help='output filename prefix'    , default=filename)
-parser.add_argument("-varname", action="store", dest="svarname"  ,
-                    type=str  , help='ensemble variable name'    , default=svarname
-parser.add_argument("-thres"  , action="store", dest="threshold" ,
+parser.add_argument("-varname", action="store", dest="svarname"  , \
+                    type=str  , help='ensemble variable name'    , default=svarname)
+parser.add_argument("-thresh" , action="store", dest="threshold" , \
                     type=float, help='corr coeff threshold'      , default=threshold)
-parser.add_argument("-opref"  , action="store", dest="soutprefix",
+parser.add_argument("-opref"  , action="store", dest="soutprefix", \
                     type=str  , help='output fileprefix'         , default=soutprefix)
-parser.add_argument("-dfact"  , action="store", dest="decfact"   ,
+parser.add_argument("-dfact"  , action="store", dest="decfact"   , \
                     type=int  , help='decimation factor'         , default=decfact)
-#parser.add_argument("-nens"   , action="store", dest="nensembles",
+#parser.add_argument("-nens"   , action="store", dest="nensembles", \
 #                    type=int  , help='number of ensembles to use', default=nensembles)
 args = parser.parse_args()
 
